@@ -51,6 +51,7 @@ import xml.etree.ElementTree as ET
 from stratuslab.Monitor import Monitor
 from stratuslab.Runner import Runner
 from stratuslab.ConfigHolder import ConfigHolder, UserConfigurator
+from stratuslab.PersistentDisk import PersistentDisk
 
 import stratuslab.Util as StratusLabUtil
 
@@ -62,10 +63,11 @@ import uuid
 import socket
 import struct
 
-from libcloud.common.base import ConnectionKey
 from libcloud.compute.base import NodeImage, NodeSize, Node
 from libcloud.compute.base import NodeDriver, NodeLocation
-from libcloud.compute.types import Provider, NodeState
+from libcloud.compute.base import StorageVolume
+
+from libcloud.compute.types import NodeState
 
 
 class StratusLabConnection(ConnectionKey):
@@ -111,6 +113,24 @@ class StratusLabNodeDriver(NodeDriver):
         self.connection = StratusLabConnection(self.config_section)
 
 
+    def _get_config_section(section):
+
+        # TODO: Allow user to set the configuration file location when
+        # initializing the driver instance.
+        config_file = StratusLabUtil.defaultConfigFileUser
+
+        try:
+            config = UserConfigurator.configFileToDictWithFormattedKeys(config_file,
+                                                                        selected_section=section)
+        except ConfigurationException, ex:
+            raise ConfigurationException('invalid configuration file (%s): %s' % (config_file, ex))
+
+        configHolder = ConfigHolder(config=config)
+        configHolder.pdiskProtocol = 'https'
+
+        return configHolder
+
+
     def get_uuid(self, unique_field=None):
         """
 
@@ -127,23 +147,14 @@ class StratusLabNodeDriver(NodeDriver):
         location given when initialized.
         """
 
-        config_file = StratusLabUtil.defaultConfigFileUser
+        configHolder = self._get_config_section(self.config_section)
 
-        try:
-            config = UserConfigurator.configFileToDictWithFormattedKeys(config_file,
-                                                                        selected_section=self.config_section)
-        except ConfigurationException, ex:
-            raise ConfigurationException('Error parsing user configuration file %s' 
-                                         % configFile +'. Details: %s' % ex)
-
-        configHolder = ConfigHolder(config=config)
         monitor = Monitor(configHolder)
         vms = monitor.listVms()
 
         nodes = []
         for vm_info in vms:
             nodes.append(self._vm_info_to_node(vm_info))
-
         return nodes
 
 
@@ -331,6 +342,87 @@ class StratusLabNodeDriver(NodeDriver):
                  image=NodeImage(id='i2', name='image', driver=self),
                  extra={'foo': 'bar'})
         return n
+
+
+    def list_volumes(self, location='default'):
+        """
+        Creates a list of all of the volumes in the given location.
+        This will include private disks of the user as well as public
+        disks from other users.
+
+        This method is not a standard part of the Libcloud node driver
+        interface.
+        """
+
+        configHolder = self._get_config_section(location)
+
+        pdisk = PersistentDisk(configHolder)
+
+        filters = {}
+        volumes = pdisk.describeVolumes(filters)
+
+        storage_volumes = []
+        for info in volumes:
+            storage_volumes.append(self._convert_to_storage_volume(info))
+        
+        return storage_volumes
+
+
+    def _convert_to_storage_volume(self, info, location):
+        id = info['uuid']
+        name = info['tag']
+        size = info['size']
+        extra = {'location' : location}
+        return StorageVolume(id, name, size, self, extra=extra)
+
+
+    def create_volume(self, size, name, location='default', snapshot=None):
+        """
+        Creates a new storage volume with the given size.  The 'name'
+        corresponds to the volume tag.  The visibility of the created
+        volume is 'private'.
+
+        The snapshot parameter is currently ignored.
+
+        The created StorageVolume contains a dict for the extra
+        information with a 'location' key storing the location used
+        for the volume.  This is set to 'default' if no location has
+        been given.
+
+        @inherits: L{NodeDriver.create_volume}
+        """
+        configHolder = self._get_config_section(location)
+
+        pdisk = PersistentDisk(configHolder)
+
+        # Creates a private disk.  Boolean flag = False means private.
+        id = pdisk.createVolume(size, name, False)
+
+        extra = {'location' : location}
+
+        return StorageVolume(id, name, size, self, extra=extra)
+
+
+    def destroy_volume(self, volume):
+        """
+        Destroys the given volume. 
+
+        @inherits: L{NodeDriver.destroy_volume}
+        """
+
+        # Recover the location (config_section) from the volume.  If
+        # not present, then use 'default'.
+        try:
+            location = volume.extra['location']
+        except:
+            location = 'default'
+
+        configHolder = self._get_config_section(location)
+        pdisk = PersistentDisk(configHolder)
+
+        id = pdisk.deleteVolume(volume.id)
+
+        return StorageVolume(id, name, size, self, extra=extra)
 
 
 if __name__ == "__main__":
