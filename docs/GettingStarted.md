@@ -63,9 +63,9 @@ Do the following:
 import libcloud.compute.drivers.stratuslab_driver
 ```
 
-This import must be done *before* asking Libcloud to load the driver!
-Once this is done, then the driver can be used like any other Libcloud
-driver.
+This import must be done **before** asking Libcloud to load the
+driver!  Once this is done, then the driver can be used like any other
+Libcloud driver.
 
 ```python
 >>> from libcloud.compute.types import Provider
@@ -79,21 +79,21 @@ driver.
 ```
 
 The list functions have simple prototype implementations:
-* list_images: list all valid images in Marketplace
-* list_locations: list of sections in configuration file
-* list_nodes: list of active virtual machines
-* list_sizes: list of standard machine instance types
+* `list_images`: list all valid images in Marketplace
+* `list_locations`: list of sections in configuration file
+* `list_nodes`: list of active virtual machines
+* `list_sizes`: list of standard machine instance types
 
 The functions to control nodes and volumes have not be implemented
 yet: 
-* create_node
-* deploy_node
-* destroy_node
-* reboot_node
-* create_volume
-* destroy_volume
-* attach_volume
-* detach_volume
+* `create_node`
+* `deploy_node`
+* `destroy_node`
+* `reboot_node`
+* `create_volume`
+* `destroy_volume`
+* `attach_volume`
+* `detach_volume`
 
 
 [lc-web]: http://libcloud.apache.org/
