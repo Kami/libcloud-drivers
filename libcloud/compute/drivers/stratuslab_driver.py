@@ -28,6 +28,24 @@ driver.list_images() #-> [<NodeImage: id=HaFF..., ...]
 
 @note: This driver is currently a prototype.  Use at your own risk!
 """
+
+#
+# This code inserts the necessary information into the Libcloud data
+# structures so that the StratusLab driver can be found in the usual
+# way.  This configuration would be hardcoded into the files types.py
+# and providers.py in the libcloud/compute module if the driver were
+# distributed as part of Libcloud.
+#
+# Because this is distributed separately, you must import this class
+# BEFORE trying to use the StratusLab driver!
+#
+from libcloud.compute.types import Provider
+from libcloud.compute.providers import DRIVERS
+
+setattr(Provider, 'STRATUSLAB', 'stratuslab')
+DRIVERS['stratuslab'] = ('libcloud.compute.drivers.stratuslab_driver', 'StratusLabNodeDriver')
+
+
 import xml.etree.ElementTree as ET
 
 from stratuslab.Monitor import Monitor
