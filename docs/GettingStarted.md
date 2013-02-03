@@ -60,7 +60,7 @@ where to find the driver.
 Do the following:
 
 ```python
-import libcloud.compute.drivers.stratuslab_driver
+import lcsl.compute.drivers.stratuslab_driver
 ```
 
 This import must be done **before** asking Libcloud to load the
@@ -83,6 +83,9 @@ The list functions have simple prototype implementations:
 * `list_locations`: list of sections in configuration file
 * `list_nodes`: list of active virtual machines
 * `list_sizes`: list of standard machine instance types
+* `create_volume`: create persistent disk
+* `destroy_volume`: destroy a persistent disk
+* `list_volumes`: list the available volumes (not part of Libcloud API)
 
 The functions to control nodes and volumes have not be implemented
 yet: 
@@ -90,8 +93,6 @@ yet:
 * `deploy_node`
 * `destroy_node`
 * `reboot_node`
-* `create_volume`
-* `destroy_volume`
 * `attach_volume`
 * `detach_volume`
 
