@@ -6,7 +6,7 @@ setup(
     version='0.2',
     author='StratusLab',
     author_email='contact@stratuslab.eu',
-    url='http://pypi.python.org/pypi/stratuslab-libcloud-drivers/',
+    url='http://stratuslab.eu/',
     license='Apache 2.0',
     description='Libcloud drivers for StratusLab clouds',
     long_description=open('README.txt').read(),
