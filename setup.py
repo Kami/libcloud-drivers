@@ -14,6 +14,6 @@ setup(
 
     install_requires=[
         "apache-libcloud >= 0.11.4",
-        "stratuslab-client = 13.02.dev",
+        "stratuslab-client == 13.02.dev",
     ],
 )
