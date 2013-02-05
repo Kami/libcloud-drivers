@@ -16,22 +16,6 @@
 """
 Driver for StratusLab (http://stratuslab.eu) cloud infrastructures.
 
-import stratuslab.libcloud.stratuslab_driver
-
-from libcloud.compute.types import Provider
-from libcloud.compute.providers import get_driver
-StratusLabDriver = get_driver(Provider.STRATUSLAB)
-driver = StratusLabDriver('default')
-
-size = driver.list_sizes()[0]
-location = driver.list_locations()[0]
-image = driver.list_images()[0]
-driver.list_nodes()
-node = driver.create_node(name='mynode', size=size, location=location, image=image)
-node.destroy()
-
-@note: This driver is currently a prototype.  Use at your own risk!
-
 Questions on libcloud:
   1) How to register an external driver cleanly?
   2) What is the policy with external dependencies?

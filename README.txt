@@ -6,7 +6,8 @@ This project contains drivers to access StratusLab infrastructures via
 Libcloud.  Libcloud is a python library that allows using a large
 number of different cloud infrastructure via a single abstract API.
 
-See docs/GettingStarted.md to get started with using this driver.
+See the GettingStarted.md document to understand how to install and
+get started with this driver.
 
 More information about the StratusLab cloud distribution can be found
 at the collaboration's website: http://stratuslab.eu/.  Information
