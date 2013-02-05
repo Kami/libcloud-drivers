@@ -81,18 +81,16 @@ Libcloud driver.
 The list functions have simple prototype implementations:
 * `list_images`: list all valid images in Marketplace
 * `list_locations`: list of sections in configuration file
-* `list_nodes`: list of active virtual machines
 * `list_sizes`: list of standard machine instance types
+* `create_node`: start a virtual machine
+* `destroy_node`: terminate a virtual machine
+* `list_nodes`: list of active virtual machines
 * `create_volume`: create persistent disk
 * `destroy_volume`: destroy a persistent disk
 * `list_volumes`: list the available volumes (not part of Libcloud API)
 
-The functions to control nodes and volumes have not be implemented
-yet: 
-* `create_node`
-* `deploy_node`
-* `destroy_node`
-* `reboot_node`
+These functions haven't yet been implemented:
+* `reboot_node`: not supported by StratusLab cloud
 * `attach_volume`
 * `detach_volume`
 
