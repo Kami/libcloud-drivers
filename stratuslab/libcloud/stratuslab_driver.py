@@ -16,7 +16,7 @@
 """
 Driver for StratusLab (http://stratuslab.eu) cloud infrastructures.
 
-import lcsl.compute.drivers.stratuslab_driver
+import stratuslab.libcloud.stratuslab_driver
 
 from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
@@ -53,7 +53,7 @@ from libcloud.compute.types import Provider
 from libcloud.compute.providers import DRIVERS
 
 STRATUSLAB_DRIVER_INDEX = max(DRIVERS.keys()) + 1
-DRIVERS[STRATUSLAB_DRIVER_INDEX] = ('lcsl.compute.drivers.stratuslab_driver', 'StratusLabNodeDriver')
+DRIVERS[STRATUSLAB_DRIVER_INDEX] = ('stratuslab.libcloud.stratuslab_driver', 'StratusLabNodeDriver')
 setattr(Provider, 'STRATUSLAB', STRATUSLAB_DRIVER_INDEX)
 
 import xml.etree.ElementTree as ET
