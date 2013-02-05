@@ -9,56 +9,28 @@ API.
 Installing the Code
 ===================
 
-Easy Installation
------------------
-
-If you've got python installed on your machine with either
-`easy_install` or `pip` you can easily install the StratusLab libcloud
-driver.
-
-For `easy_install`, just do the following:
-
-```bash
-easy_install stratuslab-libcloud-drivers
-```
-
-For `pip`, the necessary command is very similar:
+The code is intended to be installed with pip.  You should be able to
+simply do the following:
 
 ```bash
 pip install stratuslab-libcloud-drivers
 ```
 
-Both commands should download and install the driver and Libcloud
-itself.
-
-You must also install the StratusLab client.  See below for
-instructions. 
-
-
-Manual Installation
--------------------
+If this is a system-wide installation, then the PYTHONPATH and PATH
+should already be set correctly.  If it is a local installation, you
+may need to set these variables by hand.
 
 You can download the package directly from [PyPi][pypi].  The name of
-the package is "stratuslab-libcloud-drivers".  Unwrap the package in a
-convenient location and add the root of the unwrapped package to
-`PYTHONPATH`.
-
-You must also download and install the Libcloud package and the
-StratusLab client, updating the `PYTHONPATH` for those packages as
-well.   For the StratusLab client installation, see below.
+the package is "stratuslab-libcloud-drivers".  The "apache-libcloud"
+and "stratuslab-client" packages are also required. 
 
 
-Installing the StratusLab Client
---------------------------------
+Configuring the StratusLab Client
+=================================
 
-The StratusLab command line client must be installed and configured.
-See the [StratusLab documentation][sl-docs] for instructions on how to
+The StratusLab command line client must be configured. See the 
+[StratusLab documentation][sl-docs] for instructions on how to
 do this.
-
-In short, you must have a StratusLab client configuration file in the
-default location `~/.stratuslab/stratuslab-user.cfg` and the
-environmental variable `PYTHONPATH` defined to include the StratusLab
-client library.
 
 
 Using the Driver
