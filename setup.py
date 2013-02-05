@@ -2,8 +2,7 @@ from distutils.core import setup
 
 setup(
     name='stratuslab-libcloud-drivers',
-    provides=['stratuslab.libcloud'],
-    version='0.2',
+    version='0.3',
     author='StratusLab',
     author_email='contact@stratuslab.eu',
     url='http://stratuslab.eu/',
@@ -12,9 +11,8 @@ setup(
     long_description=open('README.txt').read(),
 
     packages=['stratuslab', 'stratuslab.libcloud'],
-    #scripts=['bin/stowe-towels.py','bin/wash-towels.py'],
 
-    requires=[
-        "libcloud"
+    install_requires=[
+        "apache-libcloud >= 0.11.4",
     ],
 )
