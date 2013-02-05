@@ -15,12 +15,6 @@
 #
 """
 Driver for StratusLab (http://stratuslab.eu) cloud infrastructures.
-
-Questions on libcloud:
-  1) How to register an external driver cleanly?
-  2) What is the policy with external dependencies?
-  3) Why is there no list_volumes() method in NodeDriver?
-  4) Why is there no CPU (and or core) fields in NodeSize?
 """
 
 #
