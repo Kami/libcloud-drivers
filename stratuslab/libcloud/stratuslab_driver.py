@@ -55,15 +55,19 @@ from libcloud.compute.base import StorageVolume
 
 from libcloud.compute.types import NodeState
 
+# TODO: Ensure that this actually works.  Need to add the CPU to the size.
+class StratusLabNodeSize(NodeSize):
 
-#class StratusLabConnection(ConnectionKey):
-#    """
-#    Class currently serves no useful purpose!
-#    """
-#
-#    def connect(self, host=None, port=None):
-#        pass
-#
+    def __init__(self, id, name, ram, disk, bandwidth, price, driver, cpu=1):
+        super(StratusLabNodeSize, self).__init__(id=id,
+                                                 name=name,
+                                                 ram=ram,
+                                                 disk=disk,
+                                                 bandwidth=bandwidth,
+                                                 price=price,
+                                                 driver=driver)
+        self.cpu = cpu
+
 
 class StratusLabNodeDriver(NodeDriver):
     """
@@ -212,13 +216,14 @@ class StratusLabNodeDriver(NodeDriver):
         cpu, ram, swap = tuple
         bandwidth = 1000
         price = 1
-        return NodeSize(id=name,
-            name=name,
-            ram=ram,
-            disk=swap,
-            bandwidth=bandwidth,
-            price=price,
-            driver=self)
+        return StratusLabNodeSize(id=name,
+                                  name=name,
+                                  ram=ram,
+                                  disk=swap,
+                                  bandwidth=bandwidth,
+                                  price=price,
+                                  driver=self,
+                                  cpu=cpu)
 
 
     def list_nodes(self):
@@ -310,8 +315,15 @@ class StratusLabNodeDriver(NodeDriver):
 
         self._insert_required_run_option_defaults(holder)
 
-        # Extract and set size information.
-        holder.set('vmCpu', 1)
+        # The cpu attribute is only included in the StratusLab
+        # subclass of NodeSize.  Recover if the user passed in a
+        # normal NodeSize; default to 1 CPU in this case.
+        try:
+            cpu = size.cpu
+        except AttributeError:
+            cpu = 1
+
+        holder.set('vmCpu', cpu)
         holder.set('vmRam', size.ram)
         holder.set('vmSwap', size.disk)
 
