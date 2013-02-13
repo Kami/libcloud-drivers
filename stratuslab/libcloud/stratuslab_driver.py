@@ -74,6 +74,12 @@ class StratusLabNodeDriver(NodeDriver):
     website = 'http://stratuslab.eu/'
     type = Provider.STRATUSLAB
 
+    RDF_RDF = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF'
+    RDF_DESCRIPTION = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description'
+    DC_IDENTIFIER = '{http://purl.org/dc/terms/}identifier'
+    DC_TITLE = '{http://purl.org/dc/terms/}title'
+    DC_DESCRIPTION = '{http://purl.org/dc/terms/}description'
+
     default_marketplace_url = 'https://marketplace.stratuslab.eu'
 
     user_configurator = None
@@ -398,25 +404,25 @@ class StratusLabNodeDriver(NodeDriver):
 
 
     def _get_marketplace_images(self, url):
-        print url
         images = []
         try:
             filename, _ = urllib.urlretrieve(url)
             tree = ET.parse(filename)
             root = tree.getroot()
-            for md in root.findall('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF'):
-                rdf_desc = md.find('{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description')
-                id = rdf_desc.find('{http://purl.org/dc/terms/}identifier').text
-                elem = rdf_desc.find('{http://purl.org/dc/terms/}title')
+            for md in root.findall(self.RDF_RDF):
+                rdf_desc = md.find(self.RDF_DESCRIPTION)
+                id = rdf_desc.find(self.DC_IDENTIFIER).text
+                elem = rdf_desc.find(self.DC_TITLE)
                 if ((elem is None) or (len(elem) == 0)):
-                    elem = rdf_desc.find('{http://purl.org/dc/terms/}description')
-                if elem is not None:
+                    elem = rdf_desc.find(self.DC_DESCRIPTION)
+                if (elem is not None) and (elem.text is not None):
                     name = elem.text[:25]
                 else:
                     name = ''
                 images.append(NodeImage(id=id, name=name, driver=self))
         except Exception as e:
-            print e
+            # TODO: log errors instead of ignoring them
+            pass
 
         return images
 
