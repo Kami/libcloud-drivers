@@ -48,12 +48,12 @@ import uuid
 
 from libcloud.compute.base import NodeImage, NodeSize, Node
 from libcloud.compute.base import NodeDriver, NodeLocation
+from libcloud.compute.base import UuidMixin
 from libcloud.compute.base import StorageVolume
 
 from libcloud.compute.types import NodeState
 
 
-# TODO: Ensure that this actually works.  Need to add the CPU to the size.
 class StratusLabNodeSize(NodeSize):
     """
     Subclass of the standard NodeSize class that adds a CPU
@@ -71,6 +71,48 @@ class StratusLabNodeSize(NodeSize):
                                                  price=price,
                                                  driver=driver)
         self.cpu = cpu
+
+
+class StratusLabNode(Node, UuidMixin):
+    """
+    Subclass of the standard Node class that overrides attribute
+    look up to allow the 'state' attribute to be calculated via a
+    function call.
+    """
+
+    def __init__(self, node_id, name, state, public_ips, private_ips,
+                 driver, size=None, image=None, extra=None):
+
+        super(StratusLabNode, self).__init__(id, name, state,
+                                             public_ips, private_ips,
+                                             driver, size, image, extra)
+
+        try:
+            self.location = extra['location']
+        except (TypeError, KeyError):
+            raise ValueError('extra[\'location\'] must be specified')
+
+    @property
+    def state(self):
+        return self._get_node_state()
+
+    @state.setter
+    def
+
+    def _get_node_state(self):
+
+        configHolder = self._get_config_section(self.location)
+        monitor = Monitor(configHolder)
+
+        vm_info = monitor.vmDetail([self.id])[0]
+
+        attrs = vm_info.getAttributes()
+
+        print attrs
+
+        state = self._to_node_state(attrs['state_summary'] or None)
+
+        return state
 
 
 class StratusLabNodeDriver(NodeDriver):
@@ -157,7 +199,7 @@ class StratusLabNodeDriver(NodeDriver):
         config = UserConfigurator.userConfiguratorToDictWithFormattedKeys(self.user_configurator,
                                                                           selected_section=section)
 
-        configHolder = ConfigHolder(options=options, config=config)
+        configHolder = ConfigHolder(options=(options or {}), config=config)
         configHolder.pdiskProtocol = 'https'
 
         return configHolder
@@ -238,18 +280,19 @@ class StratusLabNodeDriver(NodeDriver):
 
         """
 
-        configHolder = self._get_config_section(self.default_location)
+        location = self.default_location
+        configHolder = self._get_config_section(location)
 
         monitor = Monitor(configHolder)
         vms = monitor.listVms()
 
         nodes = []
         for vm_info in vms:
-            nodes.append(self._vm_info_to_node(vm_info))
+            nodes.append(self._vm_info_to_node(vm_info, location))
 
         return nodes
 
-    def _vm_info_to_node(self, vm_info):
+    def _vm_info_to_node(self, vm_info, location):
         attrs = vm_info.getAttributes()
         node_id = attrs['id'] or None
         name = attrs['deploy_id'] or None
@@ -261,13 +304,13 @@ class StratusLabNodeDriver(NodeDriver):
         else:
             public_ips = []
 
-        return Node(node_id,
-                    name,
-                    state,
-                    public_ips,
-                    None,
-                    self,
-                    extra=attrs)
+        return StratusLabNode(node_id,
+                              name,
+                              state,
+                              public_ips,
+                              None,
+                              self,
+                              extra={'location': location})
 
     def _to_node_state(self, state):
         if state:
@@ -312,7 +355,7 @@ class StratusLabNodeDriver(NodeDriver):
 
         name = kwargs.get('name')
         size = kwargs.get('size')
-        image = kwargs.get('location')
+        image = kwargs.get('image')
         location = kwargs.get('location', self.default_location)
 
         holder = self._get_config_section(location)
@@ -336,15 +379,16 @@ class StratusLabNodeDriver(NodeDriver):
         ids = runner.runInstance()
         node_id = ids[0]
 
-        node = Node(id=node_id,
-                    name=name,
-                    state=NodeState.PENDING,
-                    public_ips=[],
-                    private_ips=[],
-                    driver=self,
-                    size=size,
-                    image=image,
-                    extra={'runner': runner})
+        node = StratusLabNode(node_id=node_id,
+                              name=name,
+                              state=NodeState.PENDING,
+                              public_ips=[],
+                              private_ips=[],
+                              driver=self,
+                              size=size,
+                              image=image,
+                              extra={'runner': runner,
+                                     'location': location})
 
         try:
             state = runner.getVmState(node_id)
@@ -356,7 +400,7 @@ class StratusLabNodeDriver(NodeDriver):
         except Exception as e:
             print e
 
-        # Why does this need to be reset?!
+        # TODO: Why does this need to be reset?!
         node.extra = {'runner': runner}
 
         return node
@@ -373,25 +417,18 @@ class StratusLabNodeDriver(NodeDriver):
             if not holder.config.get(option):
                 holder.config[option] = defaults[option]
 
-    def reboot_node(self, node):
-        """
-        Reboot the node.  This is not supported by the StratusLab
-        cloud.
-
-        @inherits: L{NodeDriver.reboot_node}
-        """
-        return False
-
     def destroy_node(self, node):
         """
         Terminate the node and remove it from the node list.  This is
         the equivalent of stratus-kill-instance.
+
         """
 
         runner = node.extra['runner']
         runner.killInstances([node.id])
 
         node.state = NodeState.TERMINATED
+
         return True
 
     def list_images(self, location=None):
@@ -442,7 +479,7 @@ class StratusLabNodeDriver(NodeDriver):
         """
         StratusLab node sizes are defined by the client and do not
         depend on the location.  Consequently, the location parameter
-        is ignore.  Node sizes defined in the configuration file
+        is ignored.  Node sizes defined in the configuration file
         (in the 'instance_types' section) augment or replace the
         standard node sizes defined by default.
 
@@ -528,12 +565,7 @@ class StratusLabNodeDriver(NodeDriver):
         @inherits: L{NodeDriver.destroy_volume}
         """
 
-        # Recover the location (config_section) from the volume.
-        # Use the default if not present.
-        try:
-            location = volume.extra['location']
-        except KeyError:
-            location = self.default_location
+        location = self._volume_location(volume)
 
         configHolder = self._get_config_section(location)
         pdisk = PersistentDisk(configHolder)
@@ -542,6 +574,54 @@ class StratusLabNodeDriver(NodeDriver):
 
         return True
 
+    def attach_volume(self, node, volume, device=None):
+        location = self._volume_location(volume)
+
+        configHolder = self._get_config_section(location)
+        pdisk = PersistentDisk(configHolder)
+
+        try:
+            host = node.extra['host']
+        except (AttributeError, KeyError):
+            raise Exception('node does not contain host information')
+
+        pdisk.hotAttach(host, node.id, volume.id)
+
+        volume.extra['node'] = node
+
+        return True
+
+    def detach_volume(self, volume):
+
+        location = self._volume_location(volume)
+
+        configHolder = self._get_config_section(location)
+        pdisk = PersistentDisk(configHolder)
+
+        try:
+            node = volume.extra['node']
+        except (AttributeError, KeyError):
+            raise Exception('volume is not attached to a node')
+
+        pdisk.hotDetach(node.id, volume.id)
+
+        return True
+
+    def _volume_location(self, volume):
+        """
+        Recovers the location information from the volume.  If
+        the information is not available, then the default
+        location for this driver is used.
+
+        """
+
+        try:
+            return volume.extra['location']
+        except KeyError:
+            return self.default_location
+
+
+pass
 
 if __name__ == "__main__":
     import doctest
