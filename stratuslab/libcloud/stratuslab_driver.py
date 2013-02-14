@@ -42,11 +42,8 @@ from stratuslab.ConfigHolder import ConfigHolder, UserConfigurator
 from stratuslab.PersistentDisk import PersistentDisk
 
 import stratuslab.Util as StratusLabUtil
-
 import ConfigParser as ConfigParser
-
 import urllib
-
 import uuid
 
 from libcloud.compute.base import NodeImage, NodeSize, Node
@@ -55,11 +52,18 @@ from libcloud.compute.base import StorageVolume
 
 from libcloud.compute.types import NodeState
 
+
 # TODO: Ensure that this actually works.  Need to add the CPU to the size.
 class StratusLabNodeSize(NodeSize):
+    """
+    Subclass of the standard NodeSize class that adds a CPU
+    field, allowing the user to specify the number of CPUs
+    required for a given configuration.
 
-    def __init__(self, id, name, ram, disk, bandwidth, price, driver, cpu=1):
-        super(StratusLabNodeSize, self).__init__(id=id,
+    """
+
+    def __init__(self, size_id, name, ram, disk, bandwidth, price, driver, cpu=1):
+        super(StratusLabNodeSize, self).__init__(id=size_id,
                                                  name=name,
                                                  ram=ram,
                                                  disk=disk,
@@ -70,13 +74,7 @@ class StratusLabNodeSize(NodeSize):
 
 
 class StratusLabNodeDriver(NodeDriver):
-    """
-    StratusLab node driver.
-    """
-
-    name = "StratusLab Node Provider"
-    website = 'http://stratuslab.eu/'
-    type = Provider.STRATUSLAB
+    """StratusLab node driver."""
 
     RDF_RDF = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF'
     RDF_DESCRIPTION = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}Description'
@@ -84,7 +82,7 @@ class StratusLabNodeDriver(NodeDriver):
     DC_TITLE = '{http://purl.org/dc/terms/}title'
     DC_DESCRIPTION = '{http://purl.org/dc/terms/}description'
 
-    default_marketplace_url = 'https://marketplace.stratuslab.eu'
+    DEFAULT_MARKETPLACE_URL = 'https://marketplace.stratuslab.eu'
 
     user_configurator = None
     locations = None
@@ -94,33 +92,44 @@ class StratusLabNodeDriver(NodeDriver):
     def __init__(self, key, secret=None, secure=False, host=None, port=None,
                  api_version=None, **kwargs):
         """
-            Creates a new instance of a StratusLabNodeDriver from the given
-            parameters.  All of the parameters are ignored except for the
-            ones defined below.
+        Creates a new instance of a StratusLabNodeDriver from the given
+        parameters.  All of the parameters are ignored except for the
+        ones defined below.
 
-            The configuration is read from the named configuration file (or
-            file-like object).  The 'locations' in the API correspond to the
-            named sections within the configuration file.
+        The configuration is read from the named configuration file (or
+        file-like object).  The 'locations' in the API correspond to the
+        named sections within the configuration file.
 
-            @param  stratuslab_user_config: File name or file-like object
-            from which to read the user's StratusLab configuration.
-            Sections in the configuration file correspond to 'locations'
-            within this API.
-            @type  stratuslab_user_config: C{str} or C{file}
+        :param key: ignored by this driver
+        :param secret: ignored by this driver
+        :param secure: passed to superclass; True required CA certs
+        :param host: ignored by this driver (use locations instead)
+        :param port: ignored by this driver (use locations instead)
+        :param api_version: ignored by this driver
+        :param kwargs: additional keyword arguments
 
-            @param stratuslab_default_location: The id (name) of the section
-            within the user configuration file to use as the default location.
-            @type  stratuslab_default_location: C{str}
+        :keyword stratuslab_user_config (str or file): File name or file-like object
+        from which to read the user's StratusLab configuration.
+        Sections in the configuration file correspond to 'locations'
+        within this API.
 
-            @rtype: C{StratusLabNodeDriver}
-            """
+        :keyword stratuslab_default_location (str): The id (name) of the section
+        within the user configuration file to use as the default location.
+
+        :returns: StratusLabNodeDriver
+
+        """
         super(StratusLabNodeDriver, self).__init__(key,
-            secret=secret,
-            secure=secure,
-            host=host,
-            port=port,
-            api_version=api_version,
-            **kwargs)
+                                                   secret=secret,
+                                                   secure=secure,
+                                                   host=host,
+                                                   port=port,
+                                                   api_version=api_version,
+                                                   **kwargs)
+
+        self.name = "StratusLab Node Provider"
+        self.website = 'http://stratuslab.eu/'
+        self.type = Provider.STRATUSLAB
 
         user_config_file = kwargs.get('stratuslab_user_config', StratusLabUtil.defaultConfigFileUser)
         default_section = kwargs.get('stratuslab_default_location', 'default')
@@ -132,29 +141,26 @@ class StratusLabNodeDriver(NodeDriver):
 
         self.sizes = self._get_config_sizes()
 
-
     def get_uuid(self, unique_field=None):
         """
 
-        @param  unique_field: Unique field
-        @type   unique_field: C{bool}
-        @rtype: L{UUID}
+        :param  unique_field (bool): Unique field
+        :returns: UUID
+
         """
         return str(uuid.uuid4())
 
-
-    def _get_config_section(self, location, options={}):
+    def _get_config_section(self, location, options=None):
         location = location or self.default_location
         section = location.id
 
         config = UserConfigurator.userConfiguratorToDictWithFormattedKeys(self.user_configurator,
-            selected_section=section)
+                                                                          selected_section=section)
 
         configHolder = ConfigHolder(options=options, config=config)
         configHolder.pdiskProtocol = 'https'
 
         return configHolder
-
 
     def _get_config_locations(self):
         """
@@ -163,6 +169,7 @@ class StratusLabNodeDriver(NodeDriver):
         contain 'name' and 'country' keys.  If 'name' is not present,
         then the id is also used for the name.  If 'country' is not
         present, then 'unknown' is the default value.
+
         """
 
         # TODO: Decide to make parser public or provide method for this info.
@@ -172,29 +179,29 @@ class StratusLabNodeDriver(NodeDriver):
 
         for section in parser.sections():
             if not (section in ['instance_types']):
-                id = section
+                location_id = section
 
                 try:
                     name = parser.get(section, 'name')
                 except ConfigParser.NoOptionError:
-                    name = id
+                    name = location_id
 
                 try:
                     country = parser.get(section, 'country')
                 except ConfigParser.NoOptionError:
                     country = 'unknown'
 
-                locations[id] = NodeLocation(id=section,
-                    name=name,
-                    country=country,
-                    driver=self)
+                locations[location_id] = NodeLocation(id=section,
+                                                      name=name,
+                                                      country=country,
+                                                      driver=self)
 
         return locations
-
 
     def _get_config_sizes(self):
         """
         Create all of the node sizes based on the user configuration.
+
         """
 
         size_map = {}
@@ -211,12 +218,11 @@ class StratusLabNodeDriver(NodeDriver):
 
         return size_map.values()
 
-
-    def _create_node_size(self, name, tuple):
-        cpu, ram, swap = tuple
+    def _create_node_size(self, name, resources):
+        cpu, ram, swap = resources
         bandwidth = 1000
         price = 1
-        return StratusLabNodeSize(id=name,
+        return StratusLabNodeSize(size_id=name,
                                   name=name,
                                   ram=ram,
                                   disk=swap,
@@ -225,11 +231,11 @@ class StratusLabNodeDriver(NodeDriver):
                                   driver=self,
                                   cpu=cpu)
 
-
     def list_nodes(self):
         """
         List the nodes (machine instances) that are running in the
         location given when initialized.
+
         """
 
         configHolder = self._get_config_section(self.default_location)
@@ -243,10 +249,9 @@ class StratusLabNodeDriver(NodeDriver):
 
         return nodes
 
-
     def _vm_info_to_node(self, vm_info):
         attrs = vm_info.getAttributes()
-        id = attrs['id'] or None
+        node_id = attrs['id'] or None
         name = attrs['deploy_id'] or None
         state = self._to_node_state(attrs['state_summary'] or None)
 
@@ -256,14 +261,13 @@ class StratusLabNodeDriver(NodeDriver):
         else:
             public_ips = []
 
-        return Node(id,
-            name,
-            state,
-            public_ips,
-            None,
-            self,
-            extra=attrs)
-
+        return Node(node_id,
+                    name,
+                    state,
+                    public_ips,
+                    None,
+                    self,
+                    extra=attrs)
 
     def _to_node_state(self, state):
         if state:
@@ -278,7 +282,6 @@ class StratusLabNodeDriver(NodeDriver):
                 return NodeState.UNKNOWN
         else:
             return NodeState.UNKNOWN
-
 
     def create_node(self, **kwargs):
         """
@@ -304,6 +307,7 @@ class StratusLabNodeDriver(NodeDriver):
         @rtype: L{Node}
 
         @inherits: L{NodeDriver.create_node}
+
         """
 
         name = kwargs.get('name')
@@ -330,23 +334,23 @@ class StratusLabNodeDriver(NodeDriver):
         runner = Runner(image.id, holder)
 
         ids = runner.runInstance()
-        id = ids[0]
+        node_id = ids[0]
 
-        node = Node(id=id,
-            name=name,
-            state=NodeState.PENDING,
-            public_ips=[],
-            private_ips=[],
-            driver=self,
-            size=size,
-            image=image,
-            extra={'runner': runner})
+        node = Node(id=node_id,
+                    name=name,
+                    state=NodeState.PENDING,
+                    public_ips=[],
+                    private_ips=[],
+                    driver=self,
+                    size=size,
+                    image=image,
+                    extra={'runner': runner})
 
         try:
-            state = runner.getVmState(id)
+            state = runner.getVmState(node_id)
             node.state = self._to_node_state(state)
 
-            _, ip = runner.getNetworkDetail(id)
+            _, ip = runner.getNetworkDetail(node_id)
             node.public_ips = [ip]
 
         except Exception as e:
@@ -369,7 +373,6 @@ class StratusLabNodeDriver(NodeDriver):
             if not holder.config.get(option):
                 holder.config[option] = defaults[option]
 
-
     def reboot_node(self, node):
         """
         Reboot the node.  This is not supported by the StratusLab
@@ -378,7 +381,6 @@ class StratusLabNodeDriver(NodeDriver):
         @inherits: L{NodeDriver.reboot_node}
         """
         return False
-
 
     def destroy_node(self, node):
         """
@@ -391,7 +393,6 @@ class StratusLabNodeDriver(NodeDriver):
 
         node.state = NodeState.TERMINATED
         return True
-
 
     def list_images(self, location=None):
         """
@@ -410,10 +411,9 @@ class StratusLabNodeDriver(NodeDriver):
         location = location or self.default_location
 
         holder = self._get_config_section(location)
-        url = holder.config.get('marketplaceEndpoint', self.default_marketplace_url)
+        url = holder.config.get('marketplaceEndpoint', self.DEFAULT_MARKETPLACE_URL)
         endpoint = '%s/metadata' % url
         return self._get_marketplace_images(endpoint)
-
 
     def _get_marketplace_images(self, url):
         images = []
@@ -423,21 +423,20 @@ class StratusLabNodeDriver(NodeDriver):
             root = tree.getroot()
             for md in root.findall(self.RDF_RDF):
                 rdf_desc = md.find(self.RDF_DESCRIPTION)
-                id = rdf_desc.find(self.DC_IDENTIFIER).text
+                image_id = rdf_desc.find(self.DC_IDENTIFIER).text
                 elem = rdf_desc.find(self.DC_TITLE)
-                if ((elem is None) or (len(elem) == 0)):
+                if elem is None or len(elem) == 0:
                     elem = rdf_desc.find(self.DC_DESCRIPTION)
-                if (elem is not None) and (elem.text is not None):
+                if elem is not None and elem.text is not None:
                     name = elem.text[:25]
                 else:
                     name = ''
-                images.append(NodeImage(id=id, name=name, driver=self))
-        except Exception as e:
+                images.append(NodeImage(id=image_id, name=name, driver=self))
+        except Exception:
             # TODO: log errors instead of ignoring them
             pass
 
         return images
-
 
     def list_sizes(self, location=None):
         """
@@ -450,7 +449,6 @@ class StratusLabNodeDriver(NodeDriver):
         @inherits: L{NodeDriver.list_images}
         """
         return self.sizes
-
 
     def list_locations(self):
         """
@@ -466,7 +464,6 @@ class StratusLabNodeDriver(NodeDriver):
         @inherits: L{NodeDriver.list_locations}
         """
         return self.locations.values()
-
 
     def list_volumes(self, location=None):
         """
@@ -491,14 +488,12 @@ class StratusLabNodeDriver(NodeDriver):
 
         return storage_volumes
 
-
     def _create_storage_volume(self, info, location):
-        id = info['uuid']
+        disk_uuid = info['uuid']
         name = info['tag']
         size = info['size']
         extra = {'location': location}
-        return StorageVolume(id, name, size, self, extra=extra)
-
+        return StorageVolume(disk_uuid, name, size, self, extra=extra)
 
     def create_volume(self, size, name, location=None, snapshot=None):
         """
@@ -520,12 +515,11 @@ class StratusLabNodeDriver(NodeDriver):
         pdisk = PersistentDisk(configHolder)
 
         # Creates a private disk.  Boolean flag = False means private.
-        id = pdisk.createVolume(size, name, False)
+        vol_uuid = pdisk.createVolume(size, name, False)
 
         extra = {'location': location}
 
-        return StorageVolume(id, name, size, self, extra=extra)
-
+        return StorageVolume(vol_uuid, name, size, self, extra=extra)
 
     def destroy_volume(self, volume):
         """
@@ -544,7 +538,7 @@ class StratusLabNodeDriver(NodeDriver):
         configHolder = self._get_config_section(location)
         pdisk = PersistentDisk(configHolder)
 
-        id = pdisk.deleteVolume(volume.id)
+        pdisk.deleteVolume(volume.id)
 
         return True
 
