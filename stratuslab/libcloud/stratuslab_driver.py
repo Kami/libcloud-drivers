@@ -75,15 +75,15 @@ class StratusLabNodeSize(NodeSize):
 
 class StratusLabNode(Node, UuidMixin):
     """
-    Subclass of the standard Node class that overrides attribute
-    look up to allow the 'state' attribute to be calculated via a
-    function call.
+    Subclass of the standard Node class that uses a function to
+    lookup the state of the node.  Although a setter for the state
+    is defined, the value is ignored.
     """
 
     def __init__(self, node_id, name, state, public_ips, private_ips,
                  driver, size=None, image=None, extra=None):
 
-        super(StratusLabNode, self).__init__(id, name, state,
+        super(StratusLabNode, self).__init__(node_id, name, state,
                                              public_ips, private_ips,
                                              driver, size, image, extra)
 
@@ -92,27 +92,43 @@ class StratusLabNode(Node, UuidMixin):
         except (TypeError, KeyError):
             raise ValueError('extra[\'location\'] must be specified')
 
+        self.host = self.get_node_host()
+
     @property
     def state(self):
-        return self._get_node_state()
+        return self.get_node_state()
 
     @state.setter
-    def
+    def state(self, value):
+        self.cached_state = value
 
-    def _get_node_state(self):
-
-        configHolder = self._get_config_section(self.location)
+    def get_vm_info(self):
+        configHolder = StratusLabNodeDriver.get_config_section(self.location, self.driver.user_configurator)
         monitor = Monitor(configHolder)
 
-        vm_info = monitor.vmDetail([self.id])[0]
+        vm_infos = monitor.vmDetail([self.id])
+        if len(vm_infos) == 0:
+            raise ValueError('cannot recover state information for %s' % self.id)
+
+        return vm_infos[0]
+
+    def get_node_host(self):
+        vm_info = self.get_vm_info()
+        attrs = vm_info.getAttributes()
+
+        return attrs['history_records_history_hostname']
+
+    def get_node_state(self):
+        vm_info = self.get_vm_info()
 
         attrs = vm_info.getAttributes()
 
-        print attrs
+        try:
+            state_summary = attrs['state_summary']
+        except KeyError:
+            state_summary = None
 
-        state = self._to_node_state(attrs['state_summary'] or None)
-
-        return state
+        return StratusLabNodeDriver._to_node_state(state_summary)
 
 
 class StratusLabNodeDriver(NodeDriver):
@@ -192,17 +208,24 @@ class StratusLabNodeDriver(NodeDriver):
         """
         return str(uuid.uuid4())
 
-    def _get_config_section(self, location, options=None):
-        location = location or self.default_location
-        section = location.id
+    @staticmethod
+    def get_config_section(location, user_configurator, options=None):
 
-        config = UserConfigurator.userConfiguratorToDictWithFormattedKeys(self.user_configurator,
-                                                                          selected_section=section)
+        config = UserConfigurator.userConfiguratorToDictWithFormattedKeys(user_configurator,
+                                                                          selected_section=location.id)
+
+        options = options or {}
+        options['verboseLevel'] = -1
+        options['verbose_level'] = -1
 
         configHolder = ConfigHolder(options=(options or {}), config=config)
         configHolder.pdiskProtocol = 'https'
 
         return configHolder
+
+    def _get_config_section(self, location, options=None):
+        location = location or self.default_location
+        return StratusLabNodeDriver.get_config_section(location, self.user_configurator, options)
 
     def _get_config_locations(self):
         """
@@ -273,14 +296,14 @@ class StratusLabNodeDriver(NodeDriver):
                                   driver=self,
                                   cpu=cpu)
 
-    def list_nodes(self):
+    def list_nodes(self, location=None):
         """
         List the nodes (machine instances) that are running in the
         location given when initialized.
 
         """
 
-        location = self.default_location
+        location = location or self.default_location
         configHolder = self._get_config_section(location)
 
         monitor = Monitor(configHolder)
@@ -296,7 +319,7 @@ class StratusLabNodeDriver(NodeDriver):
         attrs = vm_info.getAttributes()
         node_id = attrs['id'] or None
         name = attrs['deploy_id'] or None
-        state = self._to_node_state(attrs['state_summary'] or None)
+        state = StratusLabNodeDriver._to_node_state(attrs['state_summary'] or None)
 
         public_ip = attrs['template_nic_ip']
         if public_ip:
@@ -312,7 +335,8 @@ class StratusLabNodeDriver(NodeDriver):
                               self,
                               extra={'location': location})
 
-    def _to_node_state(self, state):
+    @staticmethod
+    def _to_node_state(state):
         if state:
             state = state.lower()
             if state in ['running', 'epilog']:
@@ -379,6 +403,9 @@ class StratusLabNodeDriver(NodeDriver):
         ids = runner.runInstance()
         node_id = ids[0]
 
+        extra = {'runner': runner,
+                 'location': location}
+
         node = StratusLabNode(node_id=node_id,
                               name=name,
                               state=NodeState.PENDING,
@@ -387,13 +414,9 @@ class StratusLabNodeDriver(NodeDriver):
                               driver=self,
                               size=size,
                               image=image,
-                              extra={'runner': runner,
-                                     'location': location})
+                              extra=extra)
 
         try:
-            state = runner.getVmState(node_id)
-            node.state = self._to_node_state(state)
-
             _, ip = runner.getNetworkDetail(node_id)
             node.public_ips = [ip]
 
@@ -401,14 +424,15 @@ class StratusLabNodeDriver(NodeDriver):
             print e
 
         # TODO: Why does this need to be reset?!
-        node.extra = {'runner': runner}
+        node.extra['runner'] = runner
+        node.extra['location'] = location
 
         return node
 
     def _insert_required_run_option_defaults(self, holder):
         defaults = Runner.defaultRunOptions()
 
-        defaults['verboseLevel'] = 0
+        defaults['verboseLevel'] = -1
         required_options = ['verboseLevel', 'vmTemplateFile',
                             'marketplaceEndpoint', 'vmRequirements',
                             'outVmIdsFile', 'inVmIdsFile']
@@ -464,8 +488,9 @@ class StratusLabNodeDriver(NodeDriver):
                 elem = rdf_desc.find(self.DC_TITLE)
                 if elem is None or len(elem) == 0:
                     elem = rdf_desc.find(self.DC_DESCRIPTION)
+
                 if elem is not None and elem.text is not None:
-                    name = elem.text[:25]
+                    name = elem.text.lstrip()[:30]
                 else:
                     name = ''
                 images.append(NodeImage(id=image_id, name=name, driver=self))
@@ -581,13 +606,16 @@ class StratusLabNodeDriver(NodeDriver):
         pdisk = PersistentDisk(configHolder)
 
         try:
-            host = node.extra['host']
-        except (AttributeError, KeyError):
+            host = node.host
+        except AttributeError:
             raise Exception('node does not contain host information')
 
         pdisk.hotAttach(host, node.id, volume.id)
 
-        volume.extra['node'] = node
+        try:
+            volume.extra['node'] = node
+        except AttributeError:
+            volume.extra = {'node': node}
 
         return True
 
@@ -604,6 +632,8 @@ class StratusLabNodeDriver(NodeDriver):
             raise Exception('volume is not attached to a node')
 
         pdisk.hotDetach(node.id, volume.id)
+
+        del(volume.extra['node'])
 
         return True
 

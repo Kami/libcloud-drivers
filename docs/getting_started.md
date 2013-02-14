@@ -22,15 +22,22 @@ may need to set these variables by hand.
 
 You can download the package directly from [PyPi][pypi].  The name of
 the package is "stratuslab-libcloud-drivers".  The "apache-libcloud"
-and "stratuslab-client" packages are also required. 
+and "stratuslab-client" packages along with their dependencies are
+also required.  Using pip is very strongly recommended.
 
 
 Configuring the StratusLab Client
 =================================
 
-The StratusLab command line client must be configured. See the 
-[StratusLab documentation][sl-docs] for instructions on how to
-do this.
+The StratusLab command line client must be configured.  Use the
+command `stratus-copy-config` to copy an example configuration file
+into place.  The command will print the location of your configuration
+file.  The example configuration file contains extensive documentation
+on the parameters.  Edit the file and put in your credentials and
+cloud endpoints.
+
+More detailed documentation can be found in the [StratusLab
+documentation][sl-docs] area on the website.
 
 
 Using the Driver
@@ -61,9 +68,9 @@ StratusLabDriver = get_driver(Provider.STRATUSLAB)
 driver = StratusLabDriver('default')
 
 # Get the first size, location, and image.
-size = driver.list_sizes()[0]
-location = driver.list_locations()[0]
-image = driver.list_images()[0]
+size = driver.list_sizes().pop()
+location = driver.list_locations().pop()
+image = driver.list_images().pop()
 
 # Run a node through a single lifecycle.
 driver.list_nodes()
@@ -79,10 +86,13 @@ Driver Status
 =============
 
 This driver is currently a prototype and of alpha quality.  This
-driver should not be used in production.
+driver should _not_ be used in production.
 
-The driver itself is relatively complete.  The following functions
-have working implementations:
+The driver is functionally complete, but may not work with all of the
+typical libcloud workflows.  These will be verified as tests are added
+to the code base.
+
+In detail, the following functions have working implementations:
 * `list_images`: list all valid images in Marketplace
 * `list_locations`: list of sections in configuration file
 * `list_sizes`: list of standard machine instance types
@@ -91,19 +101,16 @@ have working implementations:
 * `list_nodes`: list of active virtual machines
 * `create_volume`: create persistent disk
 * `destroy_volume`: destroy a persistent disk
+* `attach_volume`: attach a volume to node
+* `detach_volume`: remove a volume from a node
 
 The following function is specific to the StratusLab driver and is not
 part of the Libcloud standard abstraction:
 * `list_volumes`: list the available volumes
 
-The following functions have not yet been implemented:
-* `attach_volume`
-* `detach_volume`
-
 This function will not be implemented as the required functionality is
 not provided by a StratusLab cloud:
 * `reboot_node`
-
 
 [lc-web]: http://libcloud.apache.org/
 [pypi]: http://pypi.python.org/
