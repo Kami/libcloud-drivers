@@ -322,7 +322,7 @@ class StratusLabNodeDriver(NodeDriver):
     def _vm_info_to_node(self, vm_info, location):
         attrs = vm_info.getAttributes()
         node_id = attrs['id'] or None
-        name = attrs['deploy_id'] or None
+        name = attrs['name'] or None
         state = StratusLabNodeDriver._to_node_state(attrs['state_summary'] or None)
 
         public_ip = attrs['template_nic_ip']
@@ -389,6 +389,8 @@ class StratusLabNodeDriver(NodeDriver):
         holder = self._get_config_section(location)
 
         self._insert_required_run_option_defaults(holder)
+
+        holder.set('vmName', name)
 
         # The cpu attribute is only included in the StratusLab
         # subclass of NodeSize.  Recover if the user passed in a
