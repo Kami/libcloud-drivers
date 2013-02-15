@@ -92,8 +92,6 @@ class StratusLabNode(Node, UuidMixin):
         except (TypeError, KeyError):
             raise ValueError('extra[\'location\'] must be specified')
 
-        self.host = self.get_node_host()
-
     @property
     def state(self):
         return self.get_node_state()
@@ -101,6 +99,18 @@ class StratusLabNode(Node, UuidMixin):
     @state.setter
     def state(self, value):
         self.cached_state = value
+
+    @property
+    def host(self):
+        vm_info = self.get_vm_info()
+        attrs = vm_info.getAttributes()
+
+        try:
+            host = attrs['history_records_history_hostname']
+        except KeyError:
+            host = None
+
+        return host
 
     def get_vm_info(self):
         configHolder = StratusLabNodeDriver.get_config_section(self.location, self.driver.user_configurator)
@@ -111,12 +121,6 @@ class StratusLabNode(Node, UuidMixin):
             raise ValueError('cannot recover state information for %s' % self.id)
 
         return vm_infos[0]
-
-    def get_node_host(self):
-        vm_info = self.get_vm_info()
-        attrs = vm_info.getAttributes()
-
-        return attrs['history_records_history_hostname']
 
     def get_node_state(self):
         vm_info = self.get_vm_info()
@@ -494,7 +498,7 @@ class StratusLabNodeDriver(NodeDriver):
                 else:
                     name = ''
                 images.append(NodeImage(id=image_id, name=name, driver=self))
-        except Exception:
+        except:
             # TODO: log errors instead of ignoring them
             pass
 

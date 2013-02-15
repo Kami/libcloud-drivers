@@ -1,2 +1,4 @@
+v0.4, 15 February 2013 -- Make host a dynamic attribute.
+v0.3, 14 February 2013 -- Prototype will all functions 'working'.
 v0.2, 5 February 2013 -- Update classifier information.
 v0.1, 5 February 2013 -- Initial release.
