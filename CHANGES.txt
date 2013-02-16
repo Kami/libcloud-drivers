@@ -1,3 +1,5 @@
+v0.6, 16 February 2013 -- Pass in ssh public key.
+v0.5, 15 February 2013 -- Fix VM name handling.
 v0.4, 15 February 2013 -- Make host a dynamic attribute.
 v0.3, 14 February 2013 -- Prototype will all functions 'working'.
 v0.2, 5 February 2013 -- Update classifier information.

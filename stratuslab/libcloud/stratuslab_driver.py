@@ -46,7 +46,10 @@ import ConfigParser as ConfigParser
 import urllib
 import uuid
 
-from libcloud.compute.base import NodeImage, NodeSize, Node
+import tempfile
+import os
+
+from libcloud.compute.base import NodeImage, NodeSize, Node, NodeAuthSSHKey
 from libcloud.compute.base import NodeDriver, NodeLocation
 from libcloud.compute.base import UuidMixin
 from libcloud.compute.base import StorageVolume
@@ -392,6 +395,16 @@ class StratusLabNodeDriver(NodeDriver):
 
         holder.set('vmName', name)
 
+        auth = kwargs.get('auth', None)
+
+        pubkey_file = None
+        if isinstance(auth, NodeAuthSSHKey):
+            _, pubkey_file = tempfile.mkstemp(suffix='_pub.key', prefix='ssh_')
+            with open(pubkey_file, 'w') as f:
+                f.write(auth.pubkey)
+
+            holder.set('userPublicKeyFile', pubkey_file)
+
         # The cpu attribute is only included in the StratusLab
         # subclass of NodeSize.  Recover if the user passed in a
         # normal NodeSize; default to 1 CPU in this case.
@@ -432,6 +445,9 @@ class StratusLabNodeDriver(NodeDriver):
         # TODO: Why does this need to be reset?!
         node.extra['runner'] = runner
         node.extra['location'] = location
+
+        if pubkey_file:
+            os.remove(pubkey_file)
 
         return node
 
