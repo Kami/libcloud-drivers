@@ -196,19 +196,21 @@ class StratusLabNodeDriver(NodeDriver):
         self.website = 'http://stratuslab.eu/'
         self.type = Provider.STRATUSLAB
 
+        # only ssh-based authentication is supported by StratusLab
+        self.features['create_node'] = ['ssh_key']
+
         user_config_file = kwargs.get('stratuslab_user_config', StratusLabUtil.defaultConfigFileUser)
-        default_section = kwargs.get('stratuslab_default_location', 'default')
+        default_section = kwargs.get('stratuslab_default_location', None)
 
         self.user_configurator = UserConfigurator(configFile=user_config_file)
 
-        self.locations = self._get_config_locations()
-        self.default_location = self.locations.get(default_section, None) or self.locations.get('default')
+        self.default_location, self.locations = self._get_config_locations(default_section)
 
         self.sizes = self._get_config_sizes()
 
+    # noinspection PyUnusedLocal
     def get_uuid(self, unique_field=None):
         """
-
         :param  unique_field (bool): Unique field
         :returns: UUID
 
@@ -234,18 +236,35 @@ class StratusLabNodeDriver(NodeDriver):
         location = location or self.default_location
         return StratusLabNodeDriver.get_config_section(location, self.user_configurator, options)
 
-    def _get_config_locations(self):
+    def _get_config_locations(self, default_section=None):
         """
-        Returns a list of StratusLab locations.  These are defined as
-        sections in the client configuration file.  The sections may
-        contain 'name' and 'country' keys.  If 'name' is not present,
-        then the id is also used for the name.  If 'country' is not
-        present, then 'unknown' is the default value.
+        Returns the default location and a dictionary of locations.
+
+        Locations are defined as sections in the client configuration
+        file.  The sections may contain 'name' and 'country' keys.  If
+        'name' is not present, then the id is also used for the name.
+        If 'country' is not present, then 'unknown' is the default
+        value.
+
+        The default location in order of preference is: named section
+        in parameter, selected_section in configuration, and finally
+        'default'.  The 'default' key will remain the returned
+        dictionary only if it is the chosen default location.
 
         """
 
         # TODO: Decide to make parser public or provide method for this info.
         parser = self.user_configurator._parser
+
+        # determine the default location (section) to use
+        # preference: parameter, selected section in config., [default] section
+        if not default_section:
+            try:
+                default_section = parser.get('default', 'selected_section')
+            except ConfigParser.NoOptionError:
+                default_section = 'default'
+            except ConfigParser.NoSectionError:
+                raise Exception('configuration file must have [default] section')
 
         locations = {}
 
@@ -268,7 +287,15 @@ class StratusLabNodeDriver(NodeDriver):
                                                       country=country,
                                                       driver=self)
 
-        return locations
+        try:
+            default_location = locations[default_section]
+        except KeyError:
+            raise Exception('requested default location (%s) not defined' % default_section)
+
+        if default_section != 'default':
+            del(locations['default'])
+
+        return default_location, locations
 
     def _get_config_sizes(self):
         """
@@ -303,14 +330,25 @@ class StratusLabNodeDriver(NodeDriver):
                                   driver=self,
                                   cpu=cpu)
 
-    def list_nodes(self, location=None):
+    def list_nodes(self):
         """
-        List the nodes (machine instances) that are running in the
-        location given when initialized.
+        List the nodes (machine instances) that are active in all
+        locations.
 
         """
 
-        location = location or self.default_location
+        nodes = []
+        for location in self.locations.values():
+            nodes.extend(self.list_nodes_in_location(location))
+        return nodes
+
+    def list_nodes_in_location(self, location):
+        """
+        List the nodes (machine instances) that are active in the
+        given location.
+
+        """
+
         configHolder = self._get_config_section(location)
 
         monitor = Monitor(configHolder)
@@ -334,12 +372,26 @@ class StratusLabNodeDriver(NodeDriver):
         else:
             public_ips = []
 
+        size_name = '%s_size' % node_id
+
+        cpu = attrs['template_cpu']
+        ram = attrs['template_memory']
+        swap = attrs['template_disk_size']
+
+        size = self._create_node_size(size_name, (cpu, ram, swap))
+
+        mp_url = attrs['template_disk_source']
+        mp_id = mp_url.split('/')[-1]
+        image = NodeImage(mp_id, mp_id, self)
+
         return StratusLabNode(node_id,
                               name,
                               state,
                               public_ips,
                               None,
                               self,
+                              size=size,
+                              image=image,
                               extra={'location': location})
 
     @staticmethod
@@ -388,14 +440,43 @@ class StratusLabNodeDriver(NodeDriver):
         size = kwargs.get('size')
         image = kwargs.get('image')
         location = kwargs.get('location', self.default_location)
+        auth = kwargs.get('auth', None)
+
+        runner = self._create_runner(name, size, image, location=location, auth=auth)
+
+        ids = runner.runInstance()
+        node_id = ids[0]
+
+        extra = {'location': location}
+
+        node = StratusLabNode(node_id=node_id,
+                              name=name,
+                              state=NodeState.PENDING,
+                              public_ips=[],
+                              private_ips=[],
+                              driver=self,
+                              size=size,
+                              image=image,
+                              extra=extra)
+
+        try:
+            _, ip = runner.getNetworkDetail(node_id)
+            node.public_ips = [ip]
+
+        except Exception as e:
+            print e
+
+        return node
+
+    def _create_runner(self, name, size, image, location=None, auth=None):
+
+        location = location or self.default_location
 
         holder = self._get_config_section(location)
 
         self._insert_required_run_option_defaults(holder)
 
         holder.set('vmName', name)
-
-        auth = kwargs.get('auth', None)
 
         pubkey_file = None
         if isinstance(auth, NodeAuthSSHKey):
@@ -419,37 +500,10 @@ class StratusLabNodeDriver(NodeDriver):
 
         runner = Runner(image.id, holder)
 
-        ids = runner.runInstance()
-        node_id = ids[0]
-
-        extra = {'runner': runner,
-                 'location': location}
-
-        node = StratusLabNode(node_id=node_id,
-                              name=name,
-                              state=NodeState.PENDING,
-                              public_ips=[],
-                              private_ips=[],
-                              driver=self,
-                              size=size,
-                              image=image,
-                              extra=extra)
-
-        try:
-            _, ip = runner.getNetworkDetail(node_id)
-            node.public_ips = [ip]
-
-        except Exception as e:
-            print e
-
-        # TODO: Why does this need to be reset?!
-        node.extra['runner'] = runner
-        node.extra['location'] = location
-
         if pubkey_file:
             os.remove(pubkey_file)
 
-        return node
+        return runner
 
     def _insert_required_run_option_defaults(self, holder):
         defaults = Runner.defaultRunOptions()
@@ -470,7 +524,7 @@ class StratusLabNodeDriver(NodeDriver):
 
         """
 
-        runner = node.extra['runner']
+        runner = self._create_runner(node.name, node.size, node.image, location=node.location)
         runner.killInstances([node.id])
 
         node.state = NodeState.TERMINATED
@@ -516,9 +570,9 @@ class StratusLabNodeDriver(NodeDriver):
                 else:
                     name = ''
                 images.append(NodeImage(id=image_id, name=name, driver=self))
-        except:
+        except Exception as e:
             # TODO: log errors instead of ignoring them
-            pass
+            print e
 
         return images
 

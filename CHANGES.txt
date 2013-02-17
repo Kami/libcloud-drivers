@@ -1,3 +1,4 @@
+v0.7, 17 February 2013 -- Add features to allow deploy_node to work.
 v0.6, 16 February 2013 -- Pass in ssh public key.
 v0.5, 15 February 2013 -- Fix VM name handling.
 v0.4, 15 February 2013 -- Make host a dynamic attribute.

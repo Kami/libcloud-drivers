@@ -7,11 +7,11 @@ servers is similar to that for StratusLab, so it should be fairly
 straightforward to provide a plugin for this.
 
 The storage abstraction for Libcloud is "file-based".  This doesn't
-match very well with the "disk-based" storage that StratusLab
-provides.  A mapping between StratusLab disks and Libcloud 'objects'
-(or would 'container' be better?) could be done, but a serious
-evaluation needs to be done to determine if such an API binding would
-be useful.
+match very well with the "disk-based" storage that StratusLab provides
+and that is included in the "compute" part of the Libcloud API.  A
+mapping between the "file-based" storage API and StratusLab volumes
+could be done, but a serious evaluation needs to be done first to see
+if this is useful.
 
 StratusLab does not provide load balancers or DNS services, so neither
 of those abstractions make sense for a StratusLab plugin.
@@ -71,9 +71,13 @@ Open Questions
 * What is the policy with external dependencies?
 * Why is there no list_volumes() method in NodeDriver?
 * Why is there no CPU (and or core) fields in NodeSize?
+* Why is there no function to get the state of a node (list_nodes()
+  seems to be used for this)?
+* Why does list_nodes() not take a location?  Always getting all nodes
+  at all locations seems wasteful in terms of bandwidth and time.
+* Had problems with RSA SSH keys.  Are only DSA keys accepted?
+
 
 
 [lc-web]: http://libcloud.apache.org
 [lc-github]: https://github.com/apache/libcloud
-
-

@@ -16,14 +16,24 @@ simply do the following:
 pip install stratuslab-libcloud-drivers
 ```
 
-If this is a system-wide installation, then the PYTHONPATH and PATH
-should already be set correctly.  If it is a local installation, you
-may need to set these variables by hand.
+which will install both the StratusLab Libcloud driver, Libcloud
+itself, and the StratusLab client.  If you want to use the
+`deploy_node()` function, you'll also need to install paramiko, a
+python SSH library, as well.
+
+```bash
+pip install paramiko
+```
+
+If pip is configured to do system-wide installations, then the
+PYTHONPATH and PATH should already be set correctly.  If it is setup
+for user area installations, you will likely need to set these
+variables by hand.
 
 You can download the package directly from [PyPi][pypi].  The name of
-the package is "stratuslab-libcloud-drivers".  The "apache-libcloud"
-and "stratuslab-client" packages along with their dependencies are
-also required.  Using pip is very strongly recommended.
+the package is "stratuslab-libcloud-drivers".  You will also need to
+download and install all of the dependencies.  *Using pip is very
+strongly recommended.*
 
 
 Configuring the StratusLab Client
@@ -44,8 +54,7 @@ Using the Driver
 ================
 
 Once you've downloaded, installed, and configured the necessary
-dependencies, you should be able to use the StratusLab driver like
-you'd use any other Libcloud driver.  
+dependencies, you are ready to start using the driver.
 
 From the Python interactive shell do the following:
 
@@ -75,28 +84,33 @@ image = driver.list_images().pop()
 # Run a node through a single lifecycle.
 driver.list_nodes()
 node = driver.create_node(name='mynode',
-     size=size,
-     location=location,
-     image=image)
+                          size=size,
+                          location=location,
+                          image=image)
 driver.list_nodes()
 node.destroy()
 ```
 
+There are a couple examples in the test area of the GitHub repository
+for this driver.  You can also find general information on the Apache
+Libcloud website.
+
 Driver Status
 =============
 
-This driver is currently a prototype and of alpha quality.  This
-driver should _not_ be used in production.
+This driver is currently a prototype and of beta quality.  This driver
+is probably _not_ suitable for production.
 
-The driver is functionally complete, but may not work with all of the
-typical libcloud workflows.  These will be verified as tests are added
-to the code base.
+The driver is functionally complete and should work with all of the
+standard Libcloud workflows.  Problems encountered when using the
+driver should be reported via the StratusLab support mailing list.
 
 In detail, the following functions have working implementations:
 * `list_images`: list all valid images in Marketplace
 * `list_locations`: list of sections in configuration file
 * `list_sizes`: list of standard machine instance types
 * `create_node`: start a virtual machine
+* `deploy_node`: start a VM and run a script (see notes below)
 * `destroy_node`: terminate a virtual machine
 * `list_nodes`: list of active virtual machines
 * `create_volume`: create persistent disk
@@ -111,6 +125,17 @@ part of the Libcloud standard abstraction:
 This function will not be implemented as the required functionality is
 not provided by a StratusLab cloud:
 * `reboot_node`
+
+**Notes for `deploy_node`:
+
+1. The SSH library used by Libcloud seems to only work correctly with
+  DSA SSH keys.  You can have both RSA and DSA keys available in
+  parallel.
+
+2. This function uses sftp to transfer the script between the client
+and the virtual machine.  Consequently, SSH implementations that do
+not support sftp will not work.  This include, notably, ttylinux. 
+
 
 [lc-web]: http://libcloud.apache.org/
 [pypi]: http://pypi.python.org/

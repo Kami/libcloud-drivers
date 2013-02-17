@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='stratuslab-libcloud-drivers',
-    version='0.6',
+    version='0.7',
     author='StratusLab',
     author_email='contact@stratuslab.eu',
     url='http://stratuslab.eu/',
