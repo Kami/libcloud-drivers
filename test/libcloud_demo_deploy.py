@@ -1,18 +1,19 @@
-# Load the driver.
-import stratuslab.libcloud.stratuslab_driver
-
 import os.path
 
 from libcloud.compute.base import NodeAuthSSHKey
-from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
 from libcloud.compute.deployment import ScriptDeployment
 
 import demo_utils as utils
 
+from libcloud.compute.providers import set_driver
+
+set_driver('stratuslab',
+           'stratuslab.libcloud.compute_driver',
+           'StratusLabNodeDriver')
 
 # Obtain instance of StratusLab driver.
-StratusLabDriver = get_driver(Provider.STRATUSLAB)
+StratusLabDriver = get_driver('stratuslab')
 driver = StratusLabDriver('unused-key')
 
 print 'Driver: ', driver
@@ -33,7 +34,7 @@ print
 
 # Large, ubuntu machine to run at GRNET.
 size = utils.select_id('m1.large', sizes)
-location = utils.select_id('grnet', locations)
+location = utils.select_id('lal', locations)
 image = utils.select_id('GJ5vp8gIxhZ1w1MQF16R6MIcNoq', images)
 
 # Get ssh key.

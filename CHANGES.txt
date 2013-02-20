@@ -1,3 +1,4 @@
+v0.9, 20 February 2013 -- Update for Libcloud 0.12.1.
 v0.8, 20 February 2013 -- Pin to 0.11.4 because of driver registration changes.
 v0.7, 17 February 2013 -- Add features to allow deploy_node to work.
 v0.6, 16 February 2013 -- Pass in ssh public key.

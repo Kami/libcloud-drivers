@@ -16,23 +16,17 @@
 """
 Driver for StratusLab (http://stratuslab.eu) cloud infrastructures.
 """
-
 #
-# This code inserts the necessary information into the Libcloud data
-# structures so that the StratusLab driver can be found in the usual
-# way.  This configuration would be hardcoded into the files types.py
-# and providers.py in the libcloud/compute module if the driver were
-# distributed as part of Libcloud.
+# The StratusLab Libcloud driver is a third-party driver that MUST
+# be registered with the Libcloud software BEFORE being used.  To
+# do this you need to execute the following statements before
+# asking for an instance of the StratusLab Libcloud driver.
 #
-# Because this is distributed separately, you must import this class
-# BEFORE trying to use the StratusLab driver!
+# from libcloud.compute.provider import set_driver
+# set_driver('STRATUSLAB',
+#            'stratuslab.libcloud.stratuslab_driver',
+#            'StratusLabNodeDriver')
 #
-from libcloud.compute.types import Provider
-from libcloud.compute.providers import DRIVERS
-
-STRATUSLAB_DRIVER_INDEX = max(DRIVERS.keys()) + 1
-DRIVERS[STRATUSLAB_DRIVER_INDEX] = ('stratuslab.libcloud.stratuslab_driver', 'StratusLabNodeDriver')
-setattr(Provider, 'STRATUSLAB', STRATUSLAB_DRIVER_INDEX)
 
 import xml.etree.ElementTree as ET
 
@@ -194,7 +188,7 @@ class StratusLabNodeDriver(NodeDriver):
 
         self.name = "StratusLab Node Provider"
         self.website = 'http://stratuslab.eu/'
-        self.type = Provider.STRATUSLAB
+        self.type = "stratuslab"
 
         # only ssh-based authentication is supported by StratusLab
         self.features['create_node'] = ['ssh_key']

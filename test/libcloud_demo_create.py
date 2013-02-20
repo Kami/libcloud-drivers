@@ -1,17 +1,20 @@
-# Load the driver.
-import stratuslab.libcloud.stratuslab_driver
-
 import os.path
 
 from libcloud.compute.base import NodeAuthSSHKey
-from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
 
 import demo_utils as utils
 
+from libcloud.compute.providers import set_driver
+
+import stratuslab.libcloud.compute_driver
+
+set_driver('stratuslab',
+           'stratuslab.libcloud.compute_driver',
+           'StratusLabNodeDriver')
 
 # Obtain instance of StratusLab driver.
-StratusLabDriver = get_driver(Provider.STRATUSLAB)
+StratusLabDriver = get_driver('stratuslab')
 driver = StratusLabDriver('unused-key')
 
 print 'Driver: ', driver
@@ -54,7 +57,7 @@ node = driver.create_node(name='my-libcloud-node',
                           image=image,
                           auth=pubkey)
 
-driver._wait_until_running(node)
+driver.wait_until_running([node])
 
 print node
 print node.state

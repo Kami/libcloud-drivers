@@ -67,16 +67,14 @@ attaching and detaching a volume from a machine.
 Open Questions
 ==============
 
-* How to register an external driver cleanly?
 * What is the policy with external dependencies?
 * Why is there no list_volumes() method in NodeDriver?
-* Why is there no CPU (and or core) fields in NodeSize?
+* Why is there no CPU (and/or core) fields in NodeSize?
 * Why is there no function to get the state of a node (list_nodes()
   seems to be used for this)?
 * Why does list_nodes() not take a location?  Always getting all nodes
   at all locations seems wasteful in terms of bandwidth and time.
 * Had problems with RSA SSH keys.  Are only DSA keys accepted?
-
 
 
 [lc-web]: http://libcloud.apache.org

@@ -59,7 +59,11 @@ dependencies, you are ready to start using the driver.
 From the Python interactive shell do the following:
 
 ```python
-import stratuslab.libcloud.stratuslab_driver
+from libcloud.compute.providers import set_driver
+
+set_driver('STRATUSLAB',
+           'stratuslab.libcloud.compute_driver',
+           'StratusLabNodeDriver')
 ```
 
 This registers the driver with the Libcloud library.  This import must
@@ -67,28 +71,14 @@ be done **before** asking Libcloud to use the driver!  Once this is
 done, then the driver can be used like any other Libcloud driver.
 
 ```python
-# Load the driver.
-import stratuslab.libcloud.stratuslab_driver
-
 # Obtain an instance of the StratusLab driver. 
 from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
-StratusLabDriver = get_driver(Provider.STRATUSLAB)
+StratusLabDriver = get_driver('stratuslab')
 driver = StratusLabDriver('default')
 
-# Get the first size, location, and image.
-size = driver.list_sizes().pop()
-location = driver.list_locations().pop()
-image = driver.list_images().pop()
-
-# Run a node through a single lifecycle.
-driver.list_nodes()
-node = driver.create_node(name='mynode',
-                          size=size,
-                          location=location,
-                          image=image)
-driver.list_nodes()
-node.destroy()
+# Use the Libcloud methods to find, create and control nodes.
+nodes = driver.list_nodes()
 ```
 
 There are a couple examples in the test area of the GitHub repository
@@ -126,7 +116,7 @@ This function will not be implemented as the required functionality is
 not provided by a StratusLab cloud:
 * `reboot_node`
 
-**Notes for `deploy_node`:
+**Notes** for `deploy_node`:
 
 1. The SSH library used by Libcloud seems to only work correctly with
   DSA SSH keys.  You can have both RSA and DSA keys available in
