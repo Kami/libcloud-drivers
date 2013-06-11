@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>eu.stratuslab.libcloud</groupId>
-  <artifactId>stratuslab-libcloud-drivers</artifactId>
+  <artifactId>stratuslab-libcloud-drivers-pypi</artifactId>
   <version>13.05.0-SNAPSHOT</version>
   <name>Libcloud Drivers (POM)</name>
 
@@ -138,6 +138,28 @@
             <argument>sdist</argument>
           </arguments>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>add-pypi-bundle</id>
+            <phase>package</phase>
+            <goals>
+              <goal>attach-artifact</goal>
+            </goals>
+            <configuration>
+              <artifacts>
+                <artifact>
+                  <file>${basedir}/target/pypi-pkg/dist/${project.artifactId}-${project.version}.tar.gz</file>
+                  <type>tar.gz</type>
+                </artifact>
+              </artifacts>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
     </plugins>
