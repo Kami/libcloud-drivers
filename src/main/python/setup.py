@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(
-    name='${project.artifactId}',
+    name='stratuslab-libcloud-drivers',
     version='${project.version}',
     author='StratusLab',
     author_email='contact@stratuslab.eu',
