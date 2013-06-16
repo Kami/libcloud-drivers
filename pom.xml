@@ -5,7 +5,7 @@
 
   <groupId>eu.stratuslab.libcloud</groupId>
   <artifactId>stratuslab-libcloud-drivers-pypi</artifactId>
-  <version>13.05.0</version>
+  <version>13.05.1-SNAPSHOT</version>
   <name>Libcloud Drivers (POM)</name>
 
   <url>http://github.com/StratusLab/libcloud-drivers</url>
