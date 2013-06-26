@@ -25,7 +25,7 @@ try:
 except:
     from stratuslab.dirac.DiracMock import gLogger, S_OK, S_ERROR
 
-from stratuslab.dirac import InstanceManagerImpl
+from stratuslab.dirac.InstanceManagerImpl import InstanceManagerImpl
 
 
 class InstanceManager:
@@ -50,9 +50,9 @@ class InstanceManager:
 
         """
 
-        self.log = gLogger.getSubLogger('StratusLab Image %s/%s: ' % (cloudIdentifier, applianceIdentifier))
+        self.log = gLogger.getSubLogger('StratusLab_InstanceManager_%s_%s: ' % (cloudIdentifier, applianceIdentifier))
 
-        self._impl = InstanceManagerImpl.InstanceManagerImpl(applianceIdentifier, cloudIdentifier, 'm1.large')
+        self._impl = InstanceManagerImpl(applianceIdentifier, cloudIdentifier, 'm1.large')
 
         self.applianceIdentifier = applianceIdentifier
         self.cloudIdentifier = cloudIdentifier
@@ -68,11 +68,9 @@ class InstanceManager:
 
         result = self._impl.check_connection()
 
-        self._logResult(result, 'connect')
+        return self._logResult(result, 'connect')
 
-        return result
-
-    def startNewInstance(self, vmdiracInstanceID):
+    def startNewInstance(self, vmdiracInstanceID=''):
         """
         Create a new instance of the given appliance.  If successful, returns
         a tuple with the instance identifier (actually the node object itself)
@@ -87,16 +85,14 @@ class InstanceManager:
 
         result = self._impl.create(vmdiracInstanceID)
 
-        self._logResult(result, 'startNewInstance')
-
-        return result
+        return self._logResult(result, 'startNewInstance')
 
     def getInstanceStatus(self, instanceId):
         """
         Given the instance ID, returns the status.
 
         :Parameters:
-          **instanceId** - `string`
+          **instanceId** - `node`
             instance ID returned by the create() method, actually a Libcloud node object
 
         :return: S_OK | S_ERROR
@@ -104,16 +100,14 @@ class InstanceManager:
 
         result = self._impl.status(instanceId)
 
-        self._logResult(result, 'getInstanceStatus: %s' % instanceId)
-
-        return result
+        return self._logResult(result, 'getInstanceStatus: %s' % instanceId)
 
     def stopInstance(self, instanceId, public_ip=None):
         """
         Destroys (kills) the given instance.  The public_ip parameter is ignored.
 
         :Parameters:
-          **instanceId** - `string`
+          **instanceId** - `node`
             instance ID returned by the create() method, actually a Libcloud node object
           **public_ip** - `string`
             ignored
@@ -123,9 +117,7 @@ class InstanceManager:
 
         result = self._impl.terminate(instanceId, public_ip)
 
-        self._logResult(result, 'stopInstance: %s' % instanceId)
-
-        return result
+        return self._logResult(result, 'stopInstance: %s' % instanceId)
 
     def contextualizeInstance(self, instanceId, public_ip):
         """
@@ -134,7 +126,7 @@ class InstanceManager:
         for the time being, just ssh contextualisation.
 
         :Parameters:
-          **instanceId** - `string`
+          **instanceId** - `node`
             instance ID returned by the create() method, actually a Libcloud node object
           **public_ip** - `string`
             public IP of the VM, needed for asynchronous contextualisation
@@ -145,14 +137,19 @@ class InstanceManager:
 
         result = self._impl.contextualize(instanceId, public_ip)
 
-        self._logResult(result, 'contextualizeInstance: %s, %s' % (instanceId, public_ip))
-
-        return result
+        return self._logResult(result, 'contextualizeInstance: %s, %s' % (instanceId, public_ip))
 
     def _logResult(self, result, msg):
+        """
+        Checks if the return value is an error.  If so it logs it as an error along with the
+        message.  If not, it just logs a success message as 'info'.  In both cases, it
+        returns the result so that it can be returned by the caller.
+        """
         if not result['OK']:
             self.log.error(msg)
             self.log.error(result['Message'])
         else:
             self.log.info('OK: %s' % msg)
+
+        return result
 

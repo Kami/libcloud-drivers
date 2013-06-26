@@ -25,7 +25,7 @@ import os
 from libcloud.compute.providers import set_driver
 
 set_driver('STRATUSLAB',
-           'stratuslab.libcloud.stratuslab_driver',
+           'stratuslab.libcloud.compute_driver',
            'StratusLabNodeDriver')
 
 from libcloud.compute.base import NodeAuthSSHKey
@@ -34,10 +34,10 @@ from libcloud.compute.providers import get_driver
 try:
     from DIRAC import gLogger, S_OK, S_ERROR
 except:
-    from stratuslab.dirac.Mock import gLogger, S_OK, S_ERROR
+    from stratuslab.dirac.DiracMock import gLogger, S_OK, S_ERROR
 
 
-class InstanceManagerImpl (object):
+class InstanceManagerImpl(object):
     """ Implementation of the InstanceManager functionality. """
 
     def __init__(self, applianceIdentifier, cloudIdentifier='default', sizeIdentifier='m1.large'):
@@ -63,14 +63,12 @@ class InstanceManagerImpl (object):
         self.log = gLogger.getSubLogger(self.__class__.__name__)
 
         # Obtain instance of StratusLab driver.
-        StratusLabDriver = get_driver('stratuslab')
+        StratusLabDriver = get_driver('STRATUSLAB')
         self._driver = StratusLabDriver('unused-key')
 
         self.image = self._get_image(applianceIdentifier)
         self.location = self._get_location(cloudIdentifier)
         self.size = self._get_size(sizeIdentifier)
-
-        self._validate_configuration()
 
     def check_connection(self):
         """
@@ -109,16 +107,20 @@ class InstanceManagerImpl (object):
 
         # Create the new instance, called a 'node' for Libcloud.
         try:
-            self.node = self._driver.create_node(name=vmdiracInstanceID,
-                                                 size=self.size,
-                                                 location=self.location,
-                                                 image=self.image,
-                                                 auth=pubkey)
-        except Exception, e:
-            self.node = None
-            return S_ERROR(e)
+            node = self._driver.create_node(name=vmdiracInstanceID,
+                                            size=self.size,
+                                            location=self.location,
+                                            image=self.image,
+                                            auth=pubkey)
+            public_ips = node.public_ips
+            if len(public_ips) > 0:
+                public_ip = public_ips[0]
+            else:
+                public_ip = None
 
-        return S_OK((self.node, self.node.public_ip[0]))
+            return S_OK((node, public_ip))
+        except Exception, e:
+            return S_ERROR(e)
 
     def status(self, node):
         """
@@ -170,7 +172,7 @@ class InstanceManagerImpl (object):
         """
         Contextualize the given instance.  This is currently a no-op.
 
-        This must return S_OK(instanceId) on success!
+        This must return S_OK(node) on success!
 
         :Parameters:
           **node** - `node`
@@ -178,28 +180,32 @@ class InstanceManagerImpl (object):
           **public_ip** - `string`
             public IP assigned to the node if any
 
-        :return: S_OK(instanceId) | S_ERROR
+        :return: S_OK(node) | S_ERROR
         """
 
-        # No-op for now.
-        pass
+        self._driver.wait_until_running([node])
 
-    def _validate_configuration(self):
-        if self.image is None:
-            raise Exception('invalid appliance identifier')
-        if self.location is None:
-            raise Exception('invalid cloud identifier')
-        if self.size is None:
-            raise Exception('invalid size identifier')
+        # TODO: Add the actual contextualization!
+
+        return S_OK(node)
 
     def _get_location(self, cloudIdentifier):
         locations = self._driver.list_locations()
-        return S_OK([location for location in locations if location.name == cloudIdentifier])
+        for location in locations:
+            if location.id == cloudIdentifier:
+                return location
+        raise Exception('location for %s cannot be found' % cloudIdentifier)
 
     def _get_image(self, applianceIdentifier):
         images = self._driver.list_images()
-        return S_OK([image for image in images if image.id == applianceIdentifier])
+        for image in images:
+            if image.id == applianceIdentifier:
+                return image
+        raise Exception('image for %s cannot be found' % applianceIdentifier)
 
     def _get_size(self, sizeIdentifier):
         sizes = self._driver.list_sizes()
-        return S_OK([size for size in sizes if size.id == sizeIdentifier])
+        for size in sizes:
+            if size.id == sizeIdentifier:
+                return size
+        raise Exception('size for %s cannot be found' % sizeIdentifier)

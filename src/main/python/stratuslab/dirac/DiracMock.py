@@ -30,6 +30,11 @@ class gLogger (object):
 
     def __init__(self, identifier):
         self._logger = logging.getLogger(identifier)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(logging.BASIC_FORMAT)
+        ch.setFormatter(formatter)
+        self._logger.addHandler(ch)
 
     def error(self, msg):
         self._logger.error(msg)
