@@ -10,7 +10,7 @@ setup(
     description='${project.description}',
     long_description=open('README.txt').read(),
 
-    packages=['stratuslab', 'stratuslab.libcloud'],
+    packages=['stratuslab', 'stratuslab.libcloud', 'stratuslab.dirac'],
 
     install_requires=[
         "apache-libcloud ==0.12.4",

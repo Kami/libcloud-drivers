@@ -15,9 +15,9 @@
 #
 
 """
-  Class used by DIRAC to control virtual machine instances on StratusLab
-  cloud infrastructures.  This provides just the core interface methods for
-  DIRAC, the real work is done within the InstanceManagerImpl class.
+Class used by DIRAC to control virtual machine instances on StratusLab
+cloud infrastructures.  This provides just the core interface methods for
+DIRAC, the real work is done within the InstanceManagerImpl class.
 """
 
 try:
@@ -30,8 +30,8 @@ from stratuslab.dirac import InstanceManagerImpl
 
 class InstanceManager:
     """
-    Provides interface for managing virtual machine instances of an
-    appliance on a StratusLab cloud infrastructure.
+    Provides interface for managing virtual machine instances of a
+    particular appliance on a StratusLab cloud infrastructure.
     """
 
     def __init__(self, applianceIdentifier, cloudIdentifier='default'):
@@ -52,7 +52,7 @@ class InstanceManager:
 
         self.log = gLogger.getSubLogger('StratusLab Image %s/%s: ' % (cloudIdentifier, applianceIdentifier))
 
-        self._impl = InstanceManagerImpl()
+        self._impl = InstanceManagerImpl.InstanceManagerImpl(applianceIdentifier, cloudIdentifier, 'm1.large')
 
         self.applianceIdentifier = applianceIdentifier
         self.cloudIdentifier = cloudIdentifier
@@ -66,12 +66,6 @@ class InstanceManager:
         :return: S_OK | S_ERROR
         """
 
-        # Validate the image and cloud configuration.
-        # TODO: add this validation
-
-        # Create the Libcloud driver for StratusLab and initialize it.
-        # TODO: add initialization of Libcloud driver.
-
         result = self._impl.check_connection()
 
         self._logResult(result, 'connect')
@@ -80,9 +74,15 @@ class InstanceManager:
 
     def startNewInstance(self, vmdiracInstanceID):
         """
-        Create a new instance of the given appliance.
+        Create a new instance of the given appliance.  If successful, returns
+        a tuple with the instance identifier (actually the node object itself)
+        and the public IP address of the instance.
 
-        :return: S_OK | S_ERROR
+        The returned instance identifier (node object) must be treated as an
+        opaque identifier for the instance.  It must be passed back to the other
+        methods in the class without modification!
+
+        :return: S_OK(node, public_IP) | S_ERROR
         """
 
         result = self._impl.create(vmdiracInstanceID)
@@ -93,13 +93,11 @@ class InstanceManager:
 
     def getInstanceStatus(self, instanceId):
         """
-        Given the node ID, returns the status. Bear in mind, is the translation of
-        the status done by libcloud and then reversed to a string. Its possible values
-        are: RUNNING, REBOOTING, TERMINATED, PENDING, UNKNOWN.
+        Given the instance ID, returns the status.
 
         :Parameters:
-          **uniqueId** - `string`
-            node ID, given by the OpenStack service
+          **instanceId** - `string`
+            instance ID returned by the create() method, actually a Libcloud node object
 
         :return: S_OK | S_ERROR
         """
@@ -116,7 +114,7 @@ class InstanceManager:
 
         :Parameters:
           **instanceId** - `string`
-            StratusLab instance identifier
+            instance ID returned by the create() method, actually a Libcloud node object
           **public_ip** - `string`
             ignored
 
@@ -137,7 +135,7 @@ class InstanceManager:
 
         :Parameters:
           **instanceId** - `string`
-            StratusLab instance identifier
+            instance ID returned by the create() method, actually a Libcloud node object
           **public_ip** - `string`
             public IP of the VM, needed for asynchronous contextualisation
 

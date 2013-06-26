@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+"""
+Provides simple implementations of the DIRAC logging class and the
+status functions for use if the DIRAC code is not available.
+"""
+
 import logging
 
 
@@ -31,6 +36,9 @@ class gLogger (object):
 
     def info(self, msg):
         self._logger.info(msg)
+
+    def verbose(self, msg):
+        self._logger.debug(msg)
 
 
 def S_ERROR(msg=''):
