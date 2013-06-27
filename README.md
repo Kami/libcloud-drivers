@@ -3,7 +3,8 @@ Libcloud Drivers
 
 The repository contains the StratusLab Libcloud drivers that allow
 programmatic access to StratusLab cloud infrastructures via the
-Libcloud API.  For more information consult:
+[Libcloud API](http://libcloud.apache.org).  For more information
+consult:
 
 * The [Package entry on
 PyPi](https://pypi.python.org/pypi/stratuslab-libcloud-drivers)
