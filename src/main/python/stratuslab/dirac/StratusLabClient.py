@@ -15,8 +15,8 @@
 #
 
 """
-Detailed implementation of the StratusLab InstanceManager.  Uses
-Libcloud API to connect to the StratusLab services.
+Detailed implementation of the StratusLab methods for the StratusLabClient
+class.  Uses the Libcloud API to connect to the StratusLab services.
 """
 
 import os
@@ -45,8 +45,8 @@ except:
 from stratuslab.dirac.DiracSshContext import DiracSshContext
 
 
-class InstanceManagerImpl(object):
-    """ Implementation of the InstanceManager functionality. """
+class StratusLabClient(object):
+    """ Implementation of the StratusLabImage functionality. """
 
     def __init__(self, endpointConfiguration, imageConfiguration):
         """
@@ -73,7 +73,7 @@ class InstanceManagerImpl(object):
 
         # Create the configuration file for the StratusLab driver.
         self.endpoint_config = endpointConfiguration.config()
-        path = InstanceManagerImpl._create_stratuslab_config(self.endpoint_config)
+        path = StratusLabClient._create_stratuslab_config(self.endpoint_config)
         try:
             # Obtain instance of StratusLab driver.
             StratusLabDriver = get_driver('STRATUSLAB')

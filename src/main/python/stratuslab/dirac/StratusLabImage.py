@@ -17,7 +17,7 @@
 """
 Class used by DIRAC to control virtual machine instances on StratusLab
 cloud infrastructures.  This provides just the core interface methods for
-DIRAC, the real work is done within the InstanceManagerImpl class.
+DIRAC, the real work is done within the StratusLabClient class.
 """
 
 try:
@@ -27,11 +27,11 @@ except:
     from stratuslab.dirac.DiracMock import gLogger, S_OK, S_ERROR
     from stratuslab.dirac.DiracMock import ImageConfiguration
 
-from stratuslab.dirac.InstanceManagerImpl import InstanceManagerImpl
+from stratuslab.dirac.StratusLabClient import StratusLabClient
 from stratuslab.dirac.StratusLabEndpointConfiguration import StratusLabEndpointConfiguration
 
 
-class InstanceManager:
+class StratusLabImage:
     """
     Provides interface for managing virtual machine instances of a
     particular appliance on a StratusLab cloud infrastructure.
@@ -60,7 +60,7 @@ class InstanceManager:
 
         """
 
-        self.log = gLogger.getSubLogger('StratusLab_InstanceManager_%s_%s: ' %
+        self.log = gLogger.getSubLogger('StratusLabImage_%s_%s: ' %
                                         (endpointElementName, imageElementName))
 
         self._imageConfig = ImageConfiguration(imageElementName)
@@ -88,7 +88,7 @@ class InstanceManager:
             return result
 
         try:
-            self._impl = InstanceManagerImpl(self._endpointConfig, self._imageConfig)
+            self._impl = StratusLabClient(self._endpointConfig, self._imageConfig)
         except Exception, e:
             return S_ERROR(e)
 

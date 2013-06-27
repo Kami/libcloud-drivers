@@ -38,7 +38,7 @@ import os
 import unittest
 
 from stratuslab.dirac.StratusLabEndpointConfiguration import StratusLabEndpointConfiguration
-from stratuslab.dirac.InstanceManager import InstanceManager
+from stratuslab.dirac.StratusLabImage import StratusLabImage
 from stratuslab.dirac.DiracMock import gConfig, ImageConfiguration
 
 from ConfigParser import SafeConfigParser
@@ -77,7 +77,7 @@ class DiracPluginLifecycleTest(unittest.TestCase):
 
     def test_lifecycle(self):
 
-        im = InstanceManager(self.IMAGE_ELEMENT, self.ENDPOINT_ELEMENT)
+        im = StratusLabImage(self.IMAGE_ELEMENT, self.ENDPOINT_ELEMENT)
         self.assertIsNotNone(im)
 
         result = im.connect()
