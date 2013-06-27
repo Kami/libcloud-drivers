@@ -7,7 +7,9 @@ Note: This method has hardcoded values for the SSH keys.  The same keys must be
 used for the StratusLab Libcloud configuration.
 """
 
+import os
 import paramiko
+import time
 
 try:
     from DIRAC import gLogger, S_OK, S_ERROR

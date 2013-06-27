@@ -213,9 +213,15 @@ class StratusLabClient(object):
 
         try:
             context_function = context_choices[self.context_method]
-            context_function(node, public_ip)
         except KeyError, e:
             return S_ERROR('invalid context method: %s' % self.context_method)
+
+        try:
+            result = context_function(node, public_ip)
+            if not result['OK']:
+                return result
+        except Exception, e:
+            return S_ERROR('error running context function: %s' % e)
 
         return S_OK(node)
 
