@@ -22,10 +22,13 @@ DIRAC, the real work is done within the InstanceManagerImpl class.
 
 try:
     from DIRAC import gLogger, S_OK, S_ERROR
+    from VMDIRAC.WorkloadManagementSystem.Utilities.Configuration import ImageConfiguration
 except:
     from stratuslab.dirac.DiracMock import gLogger, S_OK, S_ERROR
+    from stratuslab.dirac.DiracMock import ImageConfiguration
 
 from stratuslab.dirac.InstanceManagerImpl import InstanceManagerImpl
+from stratuslab.dirac.StratusLabEndpointConfiguration import StratusLabEndpointConfiguration
 
 
 class InstanceManager:
@@ -34,28 +37,36 @@ class InstanceManager:
     particular appliance on a StratusLab cloud infrastructure.
     """
 
-    def __init__(self, applianceIdentifier, cloudIdentifier='default'):
+    def __init__(self, imageElementName, endpointElementName):
         """
         Creates an instance that will manage appliances of a given type
         on a specific cloud infrastructure.  Separate instances must be
         created for different cloud infrastructures and different
         appliances.
 
-        :Parameters:
-          **applianceIdentifier** - `string`
-            appliance (image) identifier from the StratusLab Marketplace
+        The configuration is validated only when the connect() method is
+        called.  This method MUST be called before any of the other
+        methods.
 
-          **cloudIdentifier** - `string`
-            name of the cloud infrastructure to use, defaults to 'default'
+        :Parameters:
+          **imageElementName** - `string`
+            element name in CS:/Resources/VirtualMachines/Images describing
+            the type of appliance (image) to instantiate
+
+          **endpointElementName** - `string`
+            element name in CS:/Resources/VirtualMachines/CloudEndpoint
+            giving the configuration parameters for the StratusLab cloud
+            endpoint
 
         """
 
-        self.log = gLogger.getSubLogger('StratusLab_InstanceManager_%s_%s: ' % (cloudIdentifier, applianceIdentifier))
+        self.log = gLogger.getSubLogger('StratusLab_InstanceManager_%s_%s: ' %
+                                        (endpointElementName, imageElementName))
 
-        self._impl = InstanceManagerImpl(applianceIdentifier, cloudIdentifier, 'm1.large')
+        self._imageConfig = ImageConfiguration(imageElementName)
+        self._endpointConfig = StratusLabEndpointConfiguration(endpointElementName)
 
-        self.applianceIdentifier = applianceIdentifier
-        self.cloudIdentifier = cloudIdentifier
+        self._impl = None
 
     def connect(self):
         """
@@ -66,8 +77,22 @@ class InstanceManager:
         :return: S_OK | S_ERROR
         """
 
-        result = self._impl.check_connection()
+        result = self._imageConfig.validate()
+        self._logResult(result, 'image configuration check')
+        if not result['OK']:
+            return result
 
+        result = self._endpointConfig.validate()
+        self._logResult(result, 'endpoint configuration check')
+        if not result['OK']:
+            return result
+
+        try:
+            self._impl = InstanceManagerImpl(self._endpointConfig, self._imageConfig)
+        except Exception, e:
+            return S_ERROR(e)
+
+        result = self._impl.check_connection()
         return self._logResult(result, 'connect')
 
     def startNewInstance(self, vmdiracInstanceID=''):
@@ -84,7 +109,6 @@ class InstanceManager:
         """
 
         result = self._impl.create(vmdiracInstanceID)
-
         return self._logResult(result, 'startNewInstance')
 
     def getInstanceStatus(self, instanceId):
@@ -99,7 +123,6 @@ class InstanceManager:
         """
 
         result = self._impl.status(instanceId)
-
         return self._logResult(result, 'getInstanceStatus: %s' % instanceId)
 
     def stopInstance(self, instanceId, public_ip=None):
@@ -116,7 +139,6 @@ class InstanceManager:
         """
 
         result = self._impl.terminate(instanceId, public_ip)
-
         return self._logResult(result, 'stopInstance: %s' % instanceId)
 
     def contextualizeInstance(self, instanceId, public_ip):
@@ -136,7 +158,6 @@ class InstanceManager:
         """
 
         result = self._impl.contextualize(instanceId, public_ip)
-
         return self._logResult(result, 'contextualizeInstance: %s, %s' % (instanceId, public_ip))
 
     def _logResult(self, result, msg):
@@ -152,4 +173,3 @@ class InstanceManager:
             self.log.info('OK: %s' % msg)
 
         return result
-

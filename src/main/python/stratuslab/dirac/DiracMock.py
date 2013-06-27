@@ -19,7 +19,43 @@ Provides simple implementations of the DIRAC logging class and the
 status functions for use if the DIRAC code is not available.
 """
 
+import copy
 import logging
+
+
+def S_ERROR(msg=''):
+    return {'OK': False, 'Message': str(msg)}
+
+
+def S_OK(value=''):
+    return {'OK': True, 'Value': value}
+
+
+class gConfigHolder (object):
+
+    def __init__(self):
+        self.configs = {}
+
+    def set_options(self, configs):
+        self.configs = configs
+
+    def add_options(self, key, value):
+        self.configs[key] = value
+
+    def get_options(self, cfg_path):
+        try:
+            return S_OK(self.configs[cfg_path])
+        except KeyError:
+            return S_ERROR('non-existent path: %s' % cfg_path)
+
+
+class gConfig (object):
+
+    HOLDER = gConfigHolder()
+
+    @staticmethod
+    def getOptionsDict(cfg_path):
+        return gConfig.HOLDER.get_options(cfg_path)
 
 
 class gLogger (object):
@@ -46,9 +82,47 @@ class gLogger (object):
         self._logger.debug(msg)
 
 
-def S_ERROR(msg=''):
-    return {'OK': False, 'Message': str(msg)}
+class EndpointConfiguration(object):
+
+    ENDPOINT_PATH = '/Resources/VirtualMachines/CloudEndpoints'
+
+    def __init__(self):
+        self.log = gLogger.getSubLogger(self.__class__.__name__)
+
+    def config(self):
+        pass
+
+    def validate(self):
+        pass
 
 
-def S_OK(value=''):
-    return {'OK': True, 'Value': value}
+class ImageConfiguration(object):
+
+    IMAGE_PATH = '/Resources/VirtualMachines/Images'
+
+    def __init__(self, imageElementName):
+        self.log = gLogger.getSubLogger(self.__class__.__name__)
+
+        options = gConfig.getOptionsDict('%s/%s' % (self.IMAGE_PATH, imageElementName))
+
+        if not options['OK']:
+            self.log.error(options['Message'])
+            options = {}
+        else:
+            options = options['Value']
+
+        # Save a shallow copy of the given dictionary for safety.
+        self._options = copy.copy(options)
+
+        # Remove any 'None' mappings from the dictionary.
+        for key, value in self._options.items():
+            if value is None:
+                del self._options[key]
+
+    def config(self):
+        return copy.copy(self._options)
+
+    def validate(self):
+        return S_OK()
+
+

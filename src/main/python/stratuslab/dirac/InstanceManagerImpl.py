@@ -20,6 +20,12 @@ Libcloud API to connect to the StratusLab services.
 """
 
 import os
+import tempfile
+from ConfigParser import SafeConfigParser
+from StringIO import StringIO
+from contextlib import closing
+
+import stratuslab.libcloud.compute_driver
 
 # ensures that StratusLab Libcloud driver is loaded before use
 from libcloud.compute.providers import set_driver
@@ -36,11 +42,13 @@ try:
 except:
     from stratuslab.dirac.DiracMock import gLogger, S_OK, S_ERROR
 
+from stratuslab.dirac.DiracSshContext import DiracSshContext
+
 
 class InstanceManagerImpl(object):
     """ Implementation of the InstanceManager functionality. """
 
-    def __init__(self, applianceIdentifier, cloudIdentifier='default', sizeIdentifier='m1.large'):
+    def __init__(self, endpointConfiguration, imageConfiguration):
         """
         Initializes this class with the applianceIdentifier (Stratuslab Marketplace
         image identifier), the cloud infrastructure, and the resource requirements
@@ -51,24 +59,39 @@ class InstanceManagerImpl(object):
         the given parameters.
 
         :Parameters:
-          **applianceIdentifier** - `string`
-            appliance (image) identifier from the Marketplace
-          **cloudIdentifier** - `string`
-            name of cloud infrastructure ('location' in Libcloud)
-          **sizeIdentifier** - `string`
-            name of the machine type (resource definition) to use
+          **endpointConfiguration** - `StratusLabEndpointConfiguration`
+            object containing the configuration for a StratusLab endpoint; this
+            object must have been validated before calling this constructor
+          **imageConfiguration** - `ImageConfiguration`
+            object containing the configuration for the appliance (image) to be
+            instantiated; this object must have been validated before calling
+            this constructor
 
         """
 
         self.log = gLogger.getSubLogger(self.__class__.__name__)
 
-        # Obtain instance of StratusLab driver.
-        StratusLabDriver = get_driver('STRATUSLAB')
-        self._driver = StratusLabDriver('unused-key')
+        # Create the configuration file for the StratusLab driver.
+        self.endpoint_config = endpointConfiguration.config()
+        path = InstanceManagerImpl._create_stratuslab_config(self.endpoint_config)
+        try:
+            # Obtain instance of StratusLab driver.
+            StratusLabDriver = get_driver('STRATUSLAB')
+            self._driver = StratusLabDriver('unused-key', stratuslab_user_config=path)
 
-        self.image = self._get_image(applianceIdentifier)
-        self.location = self._get_location(cloudIdentifier)
-        self.size = self._get_size(sizeIdentifier)
+        finally:
+            try:
+                os.remove(path)
+            except:
+                pass
+
+        self.image_config = imageConfiguration.config()
+
+        self.image = self._get_image(self.image_config['bootImageName'])
+        self.size = self._get_size(self.image_config['flavorName'])
+        self.context_method = self.image_config['contextMethod']
+        self.context_config = self.image_config['contextConfig']
+        self.location = self._get_location()
 
     def check_connection(self):
         """
@@ -185,16 +208,22 @@ class InstanceManagerImpl(object):
 
         self._driver.wait_until_running([node])
 
-        # TODO: Add the actual contextualization!
+        context_choices = {'ssh': self._ssh_contextualization,
+                           'none': self._noop_contextualization}
+
+        try:
+            context_function = context_choices[self.context_method]
+            context_function(node, public_ip)
+        except KeyError, e:
+            return S_ERROR('invalid context method: %s' % self.context_method)
 
         return S_OK(node)
 
-    def _get_location(self, cloudIdentifier):
+    def _get_location(self):
         locations = self._driver.list_locations()
-        for location in locations:
-            if location.id == cloudIdentifier:
-                return location
-        raise Exception('location for %s cannot be found' % cloudIdentifier)
+        if len(locations) > 0:
+            return locations[0]
+        raise Exception('location cannot be found')
 
     def _get_image(self, applianceIdentifier):
         images = self._driver.list_images()
@@ -209,3 +238,73 @@ class InstanceManagerImpl(object):
             if size.id == sizeIdentifier:
                 return size
         raise Exception('size for %s cannot be found' % sizeIdentifier)
+
+    @staticmethod
+    def _create_stratuslab_config(endpoint_params):
+        """
+        The argument, endpoint_params, is a dictionary with the configuration for
+        the StratusLab Libcloud API.  These parameters are written to a
+        temporary file within a [default] section.
+
+        This function returns the name of the temporary file created.  The
+        caller of this function is responsible for deleting this file.
+        """
+        parser = SafeConfigParser()
+        for key, value in endpoint_params.items():
+            if key.startswith('ex_'):
+                config_key = key.replace('ex_', '', 1)
+                parser.set(None, config_key, value)
+
+        # Directly defining a 'default' section is not allowed, so
+        # get around this by replacing [DEFAULT] with [default].
+        with closing(StringIO()) as mem_buffer:
+            parser.write(mem_buffer)
+            cfg = mem_buffer.getvalue().replace('[DEFAULT]', '[default]', 1)
+
+        _, path = tempfile.mkstemp(text=True)
+        with open(path, 'w') as f:
+            f.write(cfg)
+
+        return path
+
+    def _ssh_contextualization(self, node, public_ip):
+
+        cvmfs_http_proxy = self.endpoint_config.get('CVMFS_HTTP_PROXY')
+        siteName = self.endpoint_config.get('siteName')
+        cloudDriver = self.endpoint_config.get('cloudDriver')
+        vmStopPolicy = self.endpoint_config.get('vmStopPolicy')
+
+        vmKeyPath = self.context_config['vmKeyPath']
+        vmCertPath = self.context_config['vmCertPath']
+        vmContextualizeScriptPath = self.context_config['vmContextualizeScriptPath']
+        vmRunJobAgentURL = self.context_config['vmRunJobAgentURL']
+        vmRunVmMonitorAgentURL = self.context_config['vmRunVmMonitorAgentURL']
+        vmRunVmUpdaterAgentURL = self.context_config['vmRunVmUpdaterAgentURL']
+        vmRunLogAgentURL = self.context_config['vmRunLogAgentURL']
+        vmCvmfsContextURL = self.context_config['vmCvmfsContextURL']
+        vmDiracContextURL = self.context_config['vmDiracContextURL']
+        cpuTime = self.context_config['cpuTime']
+
+        result = DiracSshContext.sshContextualise(uniqueId=str(node),
+                                                  publicIP=public_ip,
+                                                  cloudDriver=cloudDriver,
+                                                  cvmfs_http_proxy=cvmfs_http_proxy,
+                                                  vmStopPolicy=vmStopPolicy,
+                                                  contextMethod=self.context_method,
+                                                  vmCertPath=vmCertPath,
+                                                  vmKeyPath=vmKeyPath,
+                                                  vmContextualizeScriptPath=vmContextualizeScriptPath,
+                                                  vmRunJobAgentURL=vmRunJobAgentURL,
+                                                  vmRunVmMonitorAgentURL=vmRunVmMonitorAgentURL,
+                                                  vmRunVmUpdaterAgentURL=vmRunVmUpdaterAgentURL,
+                                                  vmRunLogAgentURL=vmRunLogAgentURL,
+                                                  vmCvmfsContextURL=vmCvmfsContextURL,
+                                                  vmDiracContextURL=vmDiracContextURL,
+                                                  siteName=siteName,
+                                                  cpuTime=cpuTime)
+
+        return result
+
+    def _noop_contextualization(self, node, public_ip):
+        return S_OK()
+
