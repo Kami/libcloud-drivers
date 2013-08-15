@@ -23,7 +23,7 @@ Driver for StratusLab (http://stratuslab.eu) cloud infrastructures.
 # asking for an instance of the StratusLab Libcloud driver.
 #
 # from libcloud.compute.providers import set_driver
-# set_driver('STRATUSLAB',
+# set_driver('stratuslab',
 #            'stratuslab.libcloud.stratuslab_driver',
 #            'StratusLabNodeDriver')
 #

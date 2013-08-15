@@ -61,7 +61,7 @@ From the Python interactive shell do the following:
 ```python
 from libcloud.compute.providers import set_driver
 
-set_driver('STRATUSLAB',
+set_driver('stratuslab',
            'stratuslab.libcloud.compute_driver',
            'StratusLabNodeDriver')
 ```

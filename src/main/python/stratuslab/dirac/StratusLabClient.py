@@ -30,7 +30,7 @@ import stratuslab.libcloud.compute_driver
 # ensures that StratusLab Libcloud driver is loaded before use
 from libcloud.compute.providers import set_driver
 
-set_driver('STRATUSLAB',
+set_driver('stratuslab',
            'stratuslab.libcloud.compute_driver',
            'StratusLabNodeDriver')
 
@@ -76,7 +76,7 @@ class StratusLabClient(object):
         path = StratusLabClient._create_stratuslab_config(self.endpoint_config)
         try:
             # Obtain instance of StratusLab driver.
-            StratusLabDriver = get_driver('STRATUSLAB')
+            StratusLabDriver = get_driver('stratuslab')
             self._driver = StratusLabDriver('unused-key', stratuslab_user_config=path)
 
         finally:
